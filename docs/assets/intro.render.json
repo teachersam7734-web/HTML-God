@@ -51,5 +51,12 @@
       "t": 53,
       "type": "assembly"
     }
-  ]
+  ],
+  "audio": {
+    "source": "Voiceover.mp3",
+    "mix": "docs/film/mix-narration.mjs",
+    "report": "docs/assets/intro-audio-report.json",
+    "captions": "docs/assets/intro.en.srt",
+    "videoStreamUnchanged": true
+  }
 }

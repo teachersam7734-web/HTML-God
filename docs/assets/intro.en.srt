@@ -1,0 +1,58 @@
+1
+00:00:01,000 --> 00:00:04,040
+Every great build starts with an idea.
+
+2
+00:00:06,660 --> 00:00:08,680
+Meet HTML God.
+
+3
+00:00:10,780 --> 00:00:16,280
+Start with an interview. Define your goal,
+your audience, and what you want to create.
+
+4
+00:00:18,580 --> 00:00:22,360
+HTML Router connects your brief
+to the right skills.
+
+5
+00:00:23,570 --> 00:00:25,630
+Twenty-eight shared skills.
+
+6
+00:00:25,690 --> 00:00:28,500
+Websites. Courses and presentations.
+
+7
+00:00:28,550 --> 00:00:30,240
+Dashboards and games.
+
+8
+00:00:30,290 --> 00:00:33,630
+3D, shaders, motion, and sound.
+
+9
+00:00:35,500 --> 00:00:37,330
+One creative library.
+
+10
+00:00:37,380 --> 00:00:39,920
+For Claude Code and Codex.
+
+11
+00:00:42,550 --> 00:00:44,970
+Build. Inspect. Refine.
+
+12
+00:00:45,020 --> 00:00:50,300
+Shape each interaction, test the experience,
+and bring your vision to life.
+
+13
+00:00:53,560 --> 00:00:56,550
+HTML God. Install the plugin.
+
+14
+00:00:56,600 --> 00:00:58,600
+Say, “Interview me.”

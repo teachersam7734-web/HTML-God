@@ -1,0 +1,44 @@
+{
+  "source": "Voiceover.mp3",
+  "sourceDuration": 41.795875,
+  "finalDuration": 60,
+  "loudness": {
+    "lufs": -16.01,
+    "truePeak": -3.65,
+    "lra": 5.6
+  },
+  "videoStreamUnchanged": true,
+  "videoStreamSha256": "SHA256=ea46c08ef517138cd19caabe24293d474b87f2743a4e3403adc72f03be59f6e1",
+  "media": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "width": 1920,
+        "height": 1080,
+        "r_frame_rate": "30/1",
+        "duration": "60.000000",
+        "nb_frames": "1800"
+      },
+      {
+        "codec_name": "aac",
+        "r_frame_rate": "0/0",
+        "duration": "60.000000",
+        "nb_frames": "2814"
+      },
+      {
+        "codec_name": "mov_text",
+        "r_frame_rate": "0/0",
+        "duration": "58.600000",
+        "nb_frames": "29"
+      }
+    ],
+    "format": {
+      "duration": "60.000000",
+      "size": "11894589"
+    }
+  },
+  "method": "Eight phrase groups placed at scene changes; original speaking speed; sidechain-ducked score/SFX; two-pass -16 LUFS; AAC 256k; selectable English captions.",
+  "listeningReview": "Not auditioned on physical playback devices."
+}

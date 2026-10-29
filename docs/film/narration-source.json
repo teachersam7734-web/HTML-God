@@ -1,0 +1,9 @@
+{
+  "file": "../../Voiceover.mp3",
+  "providedBy": "Repository owner",
+  "providedOn": "2026-10-29",
+  "purpose": "Narration for the HTML God introduction, supplied by the user after the ElevenLabs MCP generation was unavailable.",
+  "provider": "ElevenLabs, as stated in the conversation; generation and voice identifiers were not supplied.",
+  "sha256": "9441e8acde33091c23e19635f7de6d15455d5b40676785419e3dafe3102ee1e1",
+  "modifications": "Original file retained unchanged. Film mix normalizes loudness and places phrase groups at scene boundaries without changing speaking speed."
+}

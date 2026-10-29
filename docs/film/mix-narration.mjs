@@ -1,0 +1,44 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {findFfmpeg} from '../../lib/discover.mjs';
+import {normalize,measure} from '../../skills/sensei-video-pipeline/scripts/audio.mjs';
+
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
+process.chdir(root);
+const ff=findFfmpeg();
+if(!ff.found||!ff.ffprobe)throw Error('FFmpeg and ffprobe are required.');
+const run=(exe,args)=>{const r=spawnSync(exe,args,{encoding:'utf8',windowsHide:true,maxBuffer:16*1024*1024});if(r.error||r.status!==0)throw Error(r.error?.message||r.stderr);return r.stdout;};
+const render=args=>run(ff.path,['-hide_banner','-nostats','-loglevel','error','-y',...args]);
+const timeline=JSON.parse(fs.readFileSync('docs/film/narration-timeline.json','utf8'));
+const work='docs/film',assets='docs/assets';
+const voice=timeline.source;
+const duration=Number(JSON.parse(run(ff.ffprobe,['-v','error','-show_entries','format=duration','-of','json',voice])).format.duration);
+if(Math.abs(duration-41.795918)>.1)throw Error('The narration source changed; realign narration-timeline.json first.');
+normalize(voice,work+'/voice-normalized.wav',{lufs:-17,tp:-3});
+const parts=timeline.segments;
+let filter='[0:a]asplit='+parts.length+parts.map((_,i)=>'[s'+i+']').join('')+';';
+filter+=parts.map((s,i)=>'[s'+i+']atrim=start='+s.from+':end='+s.to+',asetpts=PTS-STARTPTS,afade=t=in:d=0.005,afade=t=out:st='+((s.to-s.from)-.005).toFixed(6)+':d=0.005,adelay='+Math.round(s.at*1000)+':all=1[v'+i+']').join(';')+';';
+filter+=parts.map((_,i)=>'[v'+i+']').join('')+'[1:a]amix=inputs='+(parts.length+1)+':duration=longest:normalize=0,asetpts=N/SR/TB,atrim=duration=60[v]';
+render(['-i',work+'/voice-normalized.wav','-f','lavfi','-i','anullsrc=r=48000:cl=mono:d=60','-filter_complex',filter,'-map','[v]','-ar','48000',work+'/voice-timed.wav']);
+render(['-i',work+'/mix-normalized.wav','-i',work+'/voice-timed.wav','-filter_complex','[1:a]asplit=2[sc][voice];[0:a]volume=0.32[bed];[bed][sc]sidechaincompress=threshold=0.015:ratio=6:attack=15:release=400:makeup=1[ducked];[ducked][voice]amix=inputs=2:normalize=0,atrim=0:60,afade=t=out:st=59:d=1[out]','-map','[out]','-ar','48000',work+'/narrated-mix.wav']);
+normalize(work+'/narrated-mix.wav',work+'/narrated-normalized.wav',{lufs:-16,tp:-2});
+render(['-i',work+'/narrated-normalized.wav','-c:a','aac','-b:a','256k','-ar','48000',assets+'/intro-soundtrack.m4a']);
+if(!process.argv.includes('--audio-only')){
+ const video=assets+'/intro.mp4',temp=work+'/intro-narrated.tmp.mp4';
+ const hash=file=>render(['-i',file,'-map','0:v:0','-c:v','copy','-f','hash','-hash','sha256','-']).trim();
+ const before=hash(video);
+ render(['-i',video,'-i',assets+'/intro-soundtrack.m4a','-i',assets+'/intro.en.srt','-map','0:v:0','-map','1:a:0','-map','2:s:0','-c:v','copy','-c:a','copy','-c:s','mov_text','-metadata:s:a:0','title=English narration, music and sound effects','-metadata:s:s:0','language=eng','-metadata:s:s:0','title=English','-t','60','-movflags','+faststart',temp]);
+ const after=hash(temp);
+ if(before!==after)throw Error('Video stream changed unexpectedly.');
+ const media=JSON.parse(run(ff.ffprobe,['-v','error','-show_entries','format=duration,size:stream=codec_name,width,height,r_frame_rate,duration,nb_frames','-of','json',temp]));
+ if(Math.abs(Number(media.format.duration)-60)>.025||Math.abs(Number(media.streams.find(s=>s.codec_name==='aac')?.duration)-60)>.025)throw Error('Unexpected master duration.');
+ const loudness=measure(temp,{lufs:-16,tp:-2});
+ if(Math.abs(loudness.lufs+16)>.6||loudness.truePeak> -1.5)throw Error('Final audio outside loudness/peak target.');
+ render(['-v','error','-i',temp,'-f','null','-']);
+ fs.renameSync(temp,video);
+ const report={source:voice,sourceDuration:duration,finalDuration:Number(media.format.duration),loudness:{lufs:loudness.lufs,truePeak:loudness.truePeak,lra:loudness.lra},videoStreamUnchanged:true,videoStreamSha256:after,media,method:'Eight phrase groups placed at scene changes; original speaking speed; sidechain-ducked score/SFX; two-pass -16 LUFS; AAC 256k; selectable English captions.',listeningReview:'Not auditioned on physical playback devices.'};
+ fs.writeFileSync(assets+'/intro-audio-report.json',JSON.stringify(report,null,2)+'\n');
+ console.log(JSON.stringify(report,null,2));
+}

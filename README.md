@@ -8,7 +8,7 @@ A marketplace and installable plugin for **Claude Code and Codex**, built around
 
 **28 skills · 16 Claude Code agents · 5 Claude Code commands · shared verification scripts**
 
-[Start the interview](interview.html) · [Install](docs/INSTALL.md) · [Host compatibility](docs/COMPATIBILITY.md) · [Watch the one-minute introduction](docs/assets/intro.mp4)
+[Start the interview](interview.html) · [Install](docs/INSTALL.md) · [Host compatibility](docs/COMPATIBILITY.md) · [Watch the narrated one-minute introduction](docs/assets/intro.mp4)
 
 ## Install
 
