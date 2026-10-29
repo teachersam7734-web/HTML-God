@@ -1,0 +1,12 @@
+[
+  { "do": "eval", "expr": "document.querySelectorAll('#kpis .kpi').length", "expect": "3" },
+  { "do": "click", "sel": "#p-h2" },
+  { "do": "wait", "ms": 800 },
+  { "do": "eval", "expr": "document.getElementById('p-h2').getAttribute('aria-pressed')", "expect": "true" },
+  { "do": "shot", "name": "second-half" },
+  { "do": "click", "sel": "#as-table" },
+  { "do": "wait", "ms": 200 },
+  { "do": "eval", "expr": "document.querySelectorAll('#t-line tbody tr').length", "expect": "12" },
+  { "do": "shot", "name": "as-tables" },
+  { "do": "click", "sel": "#as-table" }
+]

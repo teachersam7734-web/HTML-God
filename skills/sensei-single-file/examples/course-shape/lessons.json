@@ -1,0 +1,5 @@
+[
+  { "id": "l1", "title": "Skim first", "summary": "Read the title, the first sentence of each paragraph and the last paragraph." },
+  { "id": "l2", "title": "Then scan", "summary": "Hunt for the names, numbers and key words the question points at." },
+  { "id": "l3", "title": "Close reading", "summary": "Slow down where the answer lives; a script that says </script> here must not end the block." }
+]

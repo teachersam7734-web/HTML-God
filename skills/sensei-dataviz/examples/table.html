@@ -1,0 +1,105 @@
+<!doctype html>
+<!--
+  table.html: 100,000 rows in a windowed table. Fixed row height, a spacer of N times the row height, only the visible
+  rows plus a buffer in the DOM, redrawn on scroll (coalesced to one frame); ARIA table semantics with aria-rowcount and
+  aria-rowindex so a screen reader knows where it is; sort buttons in the header; a search box, because the browser's
+  find cannot see rows that are not in the DOM.
+
+  verified: Windows 10, Node 24, playwright-core 1.62.1, installed Chrome 155, strict file:// (scripts/test-dash.mjs,
+            and sensei-verify's sensei-gate.mjs): 22 DOM rows for 100,000 at a 420 px region; the last row reached with
+            aria-rowindex 100001; sort and search redraw; PageDown scrolls the focused region; axe-core clean.
+  not verified: Firefox and Safari; screen-reader speech; variable row heights; column resize; print of all rows.
+  HTML-Sensei's own code. Origin: the virtual table in code-apps/dash/build-dash.cjs in the HTML-Sensei build project's research notes (not shipped), extended
+  with header sort buttons, search and a status line.
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>100,000 rows</title>
+<style>
+:root{--bg:#fff;--fg:#1b1f24;--muted:#4f5864;--line:#c4cad3;--head:#f1f3f6;--focus:#0b5cad;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#12161c;--fg:#eef1f5;--muted:#aab3bf;--line:#3e4652;--head:#1d232c;--focus:#7cb7ff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,"Segoe UI",Roboto,sans-serif}
+main{max-width:56rem;margin:0 auto;padding:1rem}
+label{display:block;font-weight:600;margin:.4rem 0 .2rem}
+input{font:inherit;min-height:44px;padding:.4rem .6rem;border:1px solid var(--line);border-radius:.4rem;background:var(--bg);color:var(--fg);width:min(100%,20rem)}
+#grid{height:420px;overflow:auto;border:1px solid var(--line);border-radius:.5rem;position:relative}
+#grid:focus-visible,input:focus-visible,button:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.r{display:grid;grid-template-columns:6rem 1fr 1fr 6rem;height:36px;align-items:center;border-bottom:1px solid var(--line);padding:0 .6rem;font-variant-numeric:tabular-nums}
+.r>:last-child{text-align:right}
+#head{position:sticky;top:0;background:var(--head);z-index:1}
+#head button{font:inherit;font-weight:600;background:none;border:0;color:var(--fg);min-height:36px;padding:0;cursor:pointer;text-align:inherit;width:100%}
+#body{position:absolute;left:0;right:0}
+#info{color:var(--muted)}
+@media (forced-colors:active){#head button{border:1px solid ButtonText}}
+/* nothing here animates: requestAnimationFrame only coalesces scroll redraws. Stated for the reduced-motion lint. */
+@media (prefers-reduced-motion:reduce){#grid{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<main>
+<h1>Orders</h1>
+<label for="q">Search by city</label>
+<input id="q" type="search" autocomplete="off" placeholder="Oslo, Lima, Pune or Kyiv">
+<p id="info" role="status"></p>
+<div id="grid" role="table" aria-label="Orders" aria-rowcount="100001" tabindex="0">
+  <div role="rowgroup" id="head"><div class="r" role="row" aria-rowindex="1">
+    <span role="columnheader" aria-sort="ascending"><button type="button" data-k="id">ID</button></span>
+    <span role="columnheader" aria-sort="none"><button type="button" data-k="name">Name</button></span>
+    <span role="columnheader" aria-sort="none"><button type="button" data-k="city">City</button></span>
+    <span role="columnheader" aria-sort="none"><button type="button" data-k="v">Value</button></span>
+  </div></div>
+  <div id="spacer" style="position:relative"><div role="rowgroup" id="body"></div></div>
+</div>
+</main>
+<script>
+(function () {
+  "use strict";
+  var N = 100000, RH = 36, all = new Array(N);
+  for (var i = 0; i < N; i++) all[i] = { id: i + 1, name: "Order " + (i + 1), city: ["Oslo", "Lima", "Pune", "Kyiv"][i % 4], v: (i * 7919) % 1000 };
+  var rows = all, g = document.getElementById("grid"), body = document.getElementById("body"), sp = document.getElementById("spacer");
+  var info = document.getElementById("info"), sortKey = "id", dir = 1;
+  function esc(s) { return String(s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+  function layout() { sp.style.height = (rows.length * RH) + "px"; g.setAttribute("aria-rowcount", String(rows.length + 1)); }
+  function draw() {
+    var first = Math.max(0, Math.floor(g.scrollTop / RH) - 5), count = Math.ceil(g.clientHeight / RH) + 10, h = "";
+    for (var i = first; i < Math.min(rows.length, first + count); i++) {
+      var r = rows[i];
+      h += '<div class="r" role="row" aria-rowindex="' + (i + 2) + '"><span role="cell">' + r.id + '</span><span role="cell">' + esc(r.name) +
+        '</span><span role="cell">' + r.city + '</span><span role="cell">' + r.v + "</span></div>";
+    }
+    body.style.top = (first * RH) + "px"; body.innerHTML = h;
+  }
+  var pend = false;
+  g.addEventListener("scroll", function () { if (!pend) { pend = true; requestAnimationFrame(function () { pend = false; draw(); }); } });
+  function applySort() {
+    var k = sortKey;
+    rows = rows.slice().sort(function (a, b) { return (a[k] < b[k] ? -1 : a[k] > b[k] ? 1 : a.id - b.id) * dir; });
+  }
+  function sortBy(k) {
+    dir = k === sortKey ? -dir : 1; sortKey = k;
+    var t = performance.now();
+    applySort();
+    var ms = performance.now() - t;
+    document.querySelectorAll("#head [role=columnheader]").forEach(function (h) { h.setAttribute("aria-sort", h.firstElementChild.dataset.k === k ? (dir > 0 ? "ascending" : "descending") : "none"); });
+    g.scrollTop = 0; layout(); draw();
+    info.textContent = "Sorted by " + k + ", " + (dir > 0 ? "ascending" : "descending") + ". " + rows.length.toLocaleString("en-GB") + " rows.";
+    return ms;
+  }
+  document.getElementById("head").addEventListener("click", function (e) { var b = e.target.closest("button[data-k]"); if (b) sortBy(b.dataset.k); });
+  var qt = 0;
+  document.getElementById("q").addEventListener("input", function () {
+    var q = this.value.trim().toLowerCase(); clearTimeout(qt);
+    qt = setTimeout(function () {
+      rows = q ? all.filter(function (r) { return r.city.toLowerCase().indexOf(q) === 0; }) : all;
+      if (sortKey !== "id" || dir < 0) applySort();   /* the filter keeps id order; the chosen order is applied again */
+      g.scrollTop = 0; layout(); draw();
+      info.textContent = (q ? rows.length.toLocaleString("en-GB") + " rows match “" + q + "”." : "All " + rows.length.toLocaleString("en-GB") + " rows.");
+    }, 150);
+  });
+  layout(); draw(); info.textContent = "All " + N.toLocaleString("en-GB") + " rows. Scroll, or focus the table and use Page Down.";
+  window.__table = { sortBy: sortBy, rows: function () { return rows.length; }, ready: true };
+})();
+</script>
+</body>
+</html>

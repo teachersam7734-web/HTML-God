@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- Fixture: the same features as web-bad.html, done the way lint-web asks. Should lint clean. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Good page</title>
+<style>
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+  .card { transition: transform 300ms ease, opacity 300ms ease; }
+  .hero h1 { animation: rise 1.2s both; }
+  @keyframes rise { from { transform: translateY(40px); opacity: 0 } to { transform: none; opacity: 1 } }
+  @supports (animation-timeline: view()) {
+    .reveal { animation: fade linear both; animation-timeline: view(); }
+  }
+  @media (hover: hover) and (pointer: fine) { body.custom-cursor { cursor: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .hero h1, .reveal { animation: none; }
+    .card { transition: opacity 300ms ease; }
+  }
+</style>
+</head>
+<body>
+<p><a href="https://example.org/about">About (a hyperlink, allowed offline)</a></p>
+<div class="hero"><h1>Hello</h1></div>
+<div class="knob" id="knob" tabindex="0" role="slider" aria-label="Volume" aria-valuenow="0"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const knob = document.getElementById('knob');
+  knob.addEventListener('pointerdown', () => knob.addEventListener('pointermove', e => { knob.style.left = e.clientX + 'px'; }));
+  knob.addEventListener('keydown', e => { if (e.key === 'ArrowRight') knob.style.left = (knob.offsetLeft + 10) + 'px'; });
+  function showToast(msg) { document.getElementById('toast').textContent = msg; }
+  function update() { showToast('saved'); }
+  document.querySelector('a').addEventListener('click', () => {
+    if (!document.startViewTransition || reduce.matches) { update(); return; }
+    document.startViewTransition(update);
+  });
+</script>
+</body>
+</html>

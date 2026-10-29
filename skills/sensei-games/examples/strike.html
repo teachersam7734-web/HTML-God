@@ -1,0 +1,220 @@
+<!doctype html>
+<!-- strike.html: a turn-based quiz game built on the platform alone (DOM, CSS, WAAPI), showing the patterns Save The
+     Damsel taught: a run object that owns its timers and is checked by identity in every late callback; a thrown dart
+     whose keyframes are split at the impact so the hit lands on the flight's own `finished`; a hinged plate given
+     perspective by its own parent and clipped by an inner window; individual translate and scale for layered states;
+     every animation-gated step with a timer backstop; a reduced-motion path that runs the same steps without waiting.
+     HTML-Sensei's own code and art (plain shapes). It copies nothing from Save The Damsel.
+     verified: Windows 10, installed Chrome 155 headless through Playwright 1.63, strict file:// (scripts/test-strike.mjs),
+               and sensei-verify's sensei-gate.mjs (see SKILL.md section 8).
+     not verified: Firefox and Safari; a real hidden tab on a phone; screen-reader speech; frame rate on a target device. -->
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Four Plates</title>
+<style>
+:root{--bg:#14161b;--panel:#1d2129;--fg:#eceef2;--muted:#b4bac6;--line:#3a4150;--accent:#f0b35a;--ok:#7ad69a;--no:#ff8a7a;
+  --plate-a:#4a505c;--plate-b:#262a32;--ease:cubic-bezier(.2,.7,.2,1);--snap:cubic-bezier(.55,0,1,.45)}
+*{box-sizing:border-box}
+html{scroll-behavior:auto}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.6rem;margin:.2rem 0 1rem}
+.game{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:20px;align-items:start}
+@media (max-width:700px){.game{grid-template-columns:1fr}}
+/* the board: a 2 x 2 picture under four plates */
+.board{position:relative;aspect-ratio:1;border-radius:6px;padding:8px;background:linear-gradient(150deg,#2c313b,#14171c);
+  box-shadow:0 30px 60px -30px #000,inset 0 1px 0 rgba(255,255,255,.12)}
+.clip{position:absolute;inset:8px;overflow:hidden;border-radius:3px;background:#0b0c0f}   /* the outer frame clips the whole */
+.cells{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:3px}
+/* perspective on the plate's OWN parent, and no clipping there, or the hinge flattens and the fall is cut off */
+.cell{position:relative;perspective:600px}
+.cell.open{z-index:1}                                   /* the breaking plate falls over its neighbours */
+.win{position:absolute;inset:0;overflow:hidden}         /* what must be clipped gets its own window */
+.pic{position:absolute;inset:0;opacity:0;background:
+  radial-gradient(circle at calc(100% - var(--c) * 100%) calc(100% - var(--r) * 100%),#f6d38a 0 16%,#e07a4f 17% 30%,#6c2f4b 31% 60%,#231a2c 61%)}
+.cell.open .pic,.cell.was .pic{opacity:1;transition:opacity .5s var(--ease)}
+.plate{position:absolute;inset:0;transform-origin:50% 0;backface-visibility:hidden;border-radius:2px;
+  background:radial-gradient(circle at 12px 12px,#b9bfca 0 2px,transparent 3px),radial-gradient(circle at calc(100% - 12px) 12px,#b9bfca 0 2px,transparent 3px),
+    linear-gradient(160deg,var(--plate-a),var(--plate-b));box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+.cell.open .plate{animation:plateFall .8s linear forwards}
+.cell.was .plate{display:none}
+/* the hinge: a shake, then the fall; per-segment easing goes in the keyframe at the 30% stop */
+@keyframes plateFall{0%{transform:none}8%{transform:translate(-3px,1px) rotate(-.8deg)}16%{transform:translate(3px,-1px) rotate(.8deg)}
+  30%{transform:none;opacity:1;animation-timing-function:var(--snap)}100%{transform:translateY(30%) rotateX(75deg);opacity:0}}
+.board.hit{animation:shake .4s var(--ease)}
+@keyframes shake{20%{translate:-6px 2px}45%{translate:5px -3px}70%{translate:-2px 1px}}
+.dart{position:absolute;left:0;top:0;z-index:3;width:120px;height:10px;pointer-events:none;transform-origin:120px 5px}
+.dart::before{content:"";position:absolute;left:0;top:4px;width:104px;height:2px;background:#d8c7a6}
+.dart::after{content:"";position:absolute;right:0;top:0;border-left:16px solid #e9edf3;border-top:5px solid transparent;border-bottom:5px solid transparent}
+/* the card */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+.status{display:flex;gap:1rem;flex-wrap:wrap;color:var(--muted);margin:0 0 .6rem}
+.status b{color:var(--fg)}
+.q{font-size:1.25rem;margin:.2rem 0 1rem}
+.opts{display:grid;gap:10px}
+.opt{font:inherit;color:var(--fg);text-align:left;min-height:48px;padding:.6rem .9rem;border-radius:8px;border:1px solid var(--line);
+  background:#232833;cursor:pointer;transition:translate .2s var(--ease),scale .12s var(--ease),border-color .2s,background-color .2s}
+/* individual properties: the hover lift and the press scale compose instead of replacing each other */
+@media (hover:hover) and (pointer:fine){.opt:hover:not([aria-disabled="true"]){translate:0 -2px;border-color:var(--accent)}}
+.opt:active:not([aria-disabled="true"]){scale:.97}
+.opt[aria-disabled="true"]{cursor:default}
+.opt.key{border-color:var(--ok);background:#1f3328}.opt.wrong{border-color:var(--no);background:#3a2222}
+.opt b{display:inline-block;width:1.6rem;color:var(--accent)}
+.fb{margin-top:1rem;min-height:1.5em}
+.acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:1rem}
+.btn{font:inherit;min-height:44px;padding:.4rem 1rem;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--fg);cursor:pointer}
+.opt:focus-visible,.btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.end{margin-top:1rem;padding:14px;border-radius:8px;border:1px solid var(--line);background:#181b22}
+.end h2{margin:.1rem 0 .3rem;font-size:1.3rem}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){
+  .cell.open .plate,.board.hit{animation:none}
+  .cell.open .plate{opacity:0}
+  .cell.open .pic,.cell.was .pic,.opt{transition:none}
+}
+@media (forced-colors:active){.plate{border:2px solid CanvasText}.opt.key,.opt.wrong{border-width:3px}}
+</style>
+</head>
+<body>
+<main>
+<h1>Four Plates</h1>
+<div class="game">
+  <div class="board" id="board" role="img" aria-label="Four iron plates cover a picture. Each wrong answer breaks one plate.">
+    <div class="clip"><div class="cells" id="cells"></div></div>
+  </div>
+  <section class="card" aria-labelledby="qh">
+    <p class="status"><span>Question <b id="qn">1</b> of <b id="qt">6</b></span><span>Plates broken <b id="hits">0</b> of 4</span></p>
+    <h2 class="q" id="qh"></h2>
+    <div class="opts" id="opts" role="group" aria-labelledby="qh"></div>
+    <p class="fb" id="fb"></p>
+    <div class="acts"><button type="button" class="btn" id="next" hidden>Next question</button><button type="button" class="btn" id="again">New run</button></div>
+    <div id="endbox"></div>
+    <p class="sr" id="live" aria-live="polite"></p>
+  </section>
+</div>
+<p>Keys: 1 or 2 answers, Enter moves on.</p>
+</main>
+<script>
+(function () {
+  "use strict";
+  var RM = matchMedia("(prefers-reduced-motion: reduce)");
+  var MAX = 4, ORDER = [3, 0, 2, 1];                 /* a fixed order of plates, ending on the focal cell */
+  var Q = [["7 x 8", ["54", "56"], 1], ["Half of 90", ["45", "40"], 0], ["13 + 29", ["42", "41"], 0],
+           ["100 - 37", ["73", "63"], 1], ["9 squared", ["81", "72"], 0], ["3 x 17", ["41", "51"], 1]];
+  var $ = function (id) { return document.getElementById(id); };
+  var cells = $("cells"), board = $("board"), current = null;
+  var T = window.__strike = { events: [] };
+  for (var i = 0; i < 4; i++) cells.insertAdjacentHTML("beforeend",
+    '<div class="cell" data-i="' + i + '" style="--c:' + (i % 2) + ";--r:" + (i >> 1) + '"><span class="win"><span class="pic"></span></span><span class="plate"></span></div>');
+
+  /* a run owns its timers; leaving or restarting clears them, and every late callback checks it is still current */
+  function later(run, fn, ms) { run.timers.push(setTimeout(fn, ms)); }
+  function clear(run) { if (run) { run.timers.forEach(clearTimeout); run.timers = []; run.anims.forEach(function (a) { try { a.cancel(); } catch (e) {} }); run.anims = []; } }
+  function live(t) { var el = $("live"); el.textContent = ""; setTimeout(function () { el.textContent = t; }, 80); }
+
+  function newRun() {
+    clear(current);
+    current = { i: 0, wrong: 0, over: false, picked: null, timers: [], anims: [] };
+    [].forEach.call(cells.children, function (c) { c.classList.remove("open", "was"); });
+    $("endbox").innerHTML = ""; T.run = current;
+    render(); return current;
+  }
+  function render() {
+    var run = current, q = Q[run.i];
+    $("qn").textContent = run.i + 1; $("qt").textContent = Q.length; $("hits").textContent = run.wrong;
+    $("qh").textContent = "What is " + q[0] + "?";
+    $("opts").innerHTML = q[1].map(function (o, j) { return '<button type="button" class="opt" data-j="' + j + '"><b aria-hidden="true">' + (j + 1) + "</b>" + o + "</button>"; }).join("");
+    $("fb").textContent = ""; $("next").hidden = true;
+  }
+  function pick(j) {
+    var run = current, q = Q[run.i];
+    if (run.over || run.picked !== null) return;
+    run.picked = j;
+    var ok = j === q[2], btns = $("opts").children;
+    [].forEach.call(btns, function (b, k) { b.setAttribute("aria-disabled", "true"); if (k === q[2]) b.classList.add("key"); else if (k === j) b.classList.add("wrong"); });
+    if (ok) { $("fb").textContent = "Blocked. " + q[0] + " is " + q[1][q[2]] + "."; live("Correct. " + $("fb").textContent); afterAnswer(run); return; }
+    run.wrong++;
+    $("fb").textContent = "The dart flies. " + q[0] + " is " + q[1][q[2]] + ".";
+    live("Wrong. " + q[0] + " is " + q[1][q[2]] + ". Plate " + run.wrong + " of " + MAX + " breaks.");
+    strike(run, run.wrong);
+  }
+  function afterAnswer(run) {
+    if (run !== current) return;
+    if (run.wrong >= MAX) return end(run, false);
+    if (run.i === Q.length - 1) return end(run, true);
+    $("next").hidden = false;
+  }
+
+  /* the dart: keyframes split at the impact into two animations; the flight's own `finished` lands the hit */
+  function throwDart(run, cell, onLand) {
+    var landed = false;
+    function land() { if (!landed) { landed = true; onLand(); } }
+    var flight = 420, recoil = 380;
+    if (RM.matches || !board.animate) { later(run, land, 60); return; }     /* same steps, no motion */
+    var br = board.getBoundingClientRect(), cr = cell.getBoundingClientRect();
+    var tx = cr.left - br.left + cr.width / 2, ty = cr.top - br.top + cr.height / 2;
+    var ang = cell.dataset.i % 2 ? 200 : -20, rad = ang * Math.PI / 180, D = br.width * 1.2;
+    var at = function (x, y, extra) { return "translate(" + (x - 120) + "px," + (y - 5) + "px) rotate(" + (ang + (extra || 0)) + "deg)"; };
+    var el = document.createElement("span"); el.className = "dart"; board.appendChild(el);
+    var fl = el.animate([{ transform: at(tx - Math.cos(rad) * D, ty - Math.sin(rad) * D), opacity: 0 },
+      { transform: at(tx - Math.cos(rad) * D * .6, ty - Math.sin(rad) * D * .6), opacity: 1, offset: .25 },
+      { transform: at(tx, ty), opacity: 1 }], { duration: flight, easing: "cubic-bezier(.5,0,1,1)", fill: "forwards" });
+    run.anims.push(fl); T.flight = fl;
+    fl.finished.then(function () {
+      T.events.push({ ev: "land", flight: fl.playState, by: "finished" });
+      land();
+      var rc = el.animate([{ transform: at(tx, ty) }, { transform: at(tx, ty, 3), offset: .2 }, { transform: at(tx, ty, -2), offset: .45 },
+        { transform: at(tx, ty), opacity: 1, offset: .7 }, { transform: at(tx, ty), opacity: 0 }], { duration: recoil, fill: "forwards" });
+      run.anims.push(rc); rc.finished.then(function () { el.remove(); }, function () { el.remove(); });
+    }, function () { el.remove(); });
+    /* backstop only: a hidden tab or a paused timeline gives no frames, so no `finished` */
+    later(run, function () { if (!landed) T.events.push({ ev: "land", flight: fl.playState, by: "backstop" }); land(); if (el.parentNode) later(run, function () { el.remove(); }, 600); }, flight + 1500);
+  }
+  /* run fn once on the named animation's end, or on a backstop (which is a run timer, so leaving cancels both) */
+  function afterAnim(run, el, name, fn, backstop) {
+    var fired = false;
+    function go() { if (fired) return; fired = true; el.removeEventListener("animationend", on); if (run === current) fn(); }
+    function on(e) { if (e.target === el && e.animationName === name) go(); }
+    el.addEventListener("animationend", on); later(run, go, backstop);
+  }
+  function strike(run, n) {
+    var cell = cells.children[ORDER[n - 1]];
+    throwDart(run, cell, function () {
+      if (run !== current) return;                     /* restarted while the dart was in the air */
+      cell.classList.add("open");
+      T.events.push({ ev: "open", cell: +cell.dataset.i, flight: T.flight ? T.flight.playState : "none" });
+      board.classList.remove("hit"); void board.offsetWidth; board.classList.add("hit");
+      $("hits").textContent = n;
+      var done = function () { cell.classList.remove("open"); cell.classList.add("was"); afterAnswer(run); };
+      if (RM.matches) done();                          /* no animation runs, so no animationend will come */
+      else afterAnim(run, cell.querySelector(".plate"), "plateFall", done, 1600);
+    });
+  }
+  function next() {
+    var run = current; if (run.over || run.picked === null) return;
+    run.i++; run.picked = null; render();
+    var f = $("opts").firstElementChild; if (f) f.focus({ preventScroll: true });
+  }
+  function end(run, won) {
+    run.over = true; $("next").hidden = true;
+    var line = won ? "You finished with " + (MAX - run.wrong) + " plate" + (MAX - run.wrong === 1 ? "" : "s") + " standing." : "All four plates broke at question " + (run.i + 1) + ".";
+    $("endbox").innerHTML = '<div class="end" tabindex="-1"><h2>' + (won ? "Held" : "Broken") + "</h2><p>" + line + "</p></div>";
+    $("endbox").firstChild.focus({ preventScroll: true }); live((won ? "Held. " : "Broken. ") + line);
+  }
+  $("opts").addEventListener("click", function (e) { var b = e.target.closest(".opt"); if (b) pick(+b.dataset.j); });
+  $("next").addEventListener("click", next);
+  $("again").addEventListener("click", function () { newRun(); var f = $("opts").firstElementChild; if (f) f.focus({ preventScroll: true }); });
+  addEventListener("keydown", function (e) {
+    if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.closest && e.target.closest("input,textarea,select,[contenteditable]")) return;
+    var n = "12".indexOf(e.key);
+    if (n >= 0 && current.picked === null && !current.over) { pick(n); e.preventDefault(); return; }
+    if (e.key === "Enter" && !$("next").hidden && !(e.target.closest && e.target.closest(".btn"))) { next(); e.preventDefault(); }
+  });
+  T.newRun = newRun; T.pick = pick; T.next = next;
+  newRun(); window.__ready = true;
+})();
+</script>
+</body>
+</html>

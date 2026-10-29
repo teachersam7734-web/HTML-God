@@ -1,0 +1,137 @@
+<!doctype html>
+<!-- coin-run.html: a small real-time game on GameCore (fixed step, input, versioned save) with pause, options, fullscreen,
+     a live region and reduced motion. HTML-Sensei's own code, from the research lane's code-apps/game/game.html.
+     verified: Windows 10, installed Chrome 155 headless through Playwright 1.63, strict file:// (scripts/test-game.mjs),
+               and sensei-verify's sensei-gate.mjs (see SKILL.md section 8).
+     not verified: frame rate on a target device, real touch screens and gamepads, Firefox and Safari, screen-reader play. -->
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Coin Run</title>
+<style>
+:root{--bg:#10141a;--fg:#eef1f5;--accent:#ffb454;--panel:#1b222c}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif}
+main{max-width:960px;margin:0 auto;padding:12px}
+#stage{position:relative;aspect-ratio:16/9;width:100%;background:#000;touch-action:none;user-select:none}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#hud{position:absolute;left:8px;top:8px;font-weight:700}
+.bar{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin:.6rem 0}
+button,select{font:inherit;min-height:44px;min-width:44px;padding:.3rem .9rem;border-radius:.5rem;border:1px solid var(--accent);background:var(--panel);color:var(--fg)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+label{display:inline-flex;gap:.4rem;align-items:center;min-height:44px}
+input[type=checkbox]{width:1.6rem;height:1.6rem}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+body.hc canvas{filter:contrast(1.4)}
+</style>
+</head>
+<body>
+<main>
+<h1>Coin run</h1>
+<div id="stage"><canvas id="cv" role="img" aria-label="Game view: a square runs and jumps to collect coins. Score is also shown in text below."></canvas><div id="hud" aria-hidden="true"></div></div>
+<p id="status" role="status" aria-live="polite" class="sr-only"></p>
+<p>Score: <span id="score">0</span> &middot; Best: <span id="best">0</span> &middot; Arrows or A/D move, Space jumps, Esc pauses. Touch: drag to steer, tap Jump.</p>
+<div class="bar">
+  <button id="pause" type="button" aria-pressed="false">Pause</button>
+  <button id="jump" type="button">Jump</button>
+  <button id="fs" type="button">Fullscreen</button>
+  <button id="reset" type="button">New run</button>
+</div>
+<fieldset class="bar"><legend>Accessibility and play options</legend>
+  <label><input type="checkbox" id="o-shake" checked> Screen shake</label>
+  <label><input type="checkbox" id="o-blur" checked> Pause when the tab loses focus</label>
+  <label><input type="checkbox" id="o-toggle"> Toggle jump (press once to hold)</label>
+  <label><input type="checkbox" id="o-hc"> High contrast</label>
+  <label>Game speed <select id="o-speed"><option value="0.5">Slow</option><option value="0.75">Relaxed</option><option value="1" selected>Normal</option></select></label>
+</fieldset>
+<script src="../scripts/game-core.js"></script>
+<script>
+(function () {
+  "use strict";
+  var W = 320, H = 180, GROUND = 150, G = 900, SPEED = 130, JUMP = 360;
+  var cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  var save = new GameCore.Save("coinrun", 2,
+    { 1: function (d) { return { best: d.hi || 0, opts: {} }; } },            /* v1 stored {hi}; v2 stores {best, opts} */
+    { best: 0, opts: { shake: true, blur: true, toggle: false, hc: false, speed: 1 } });
+  var saved = save.load(), opts = Object.assign({ shake: true, blur: true, toggle: false, hc: false, speed: 1 }, saved.opts);
+  var RM = matchMedia("(prefers-reduced-motion: reduce)"); if (RM.matches) opts.shake = false;
+
+  function newState() {
+    return { x: 40, y: GROUND, vx: 0, vy: 0, onGround: true, score: 0, t: 0, shake: 0,
+             coins: [200, 320, 440, 560, 680, 800].map(function (x, i) { return { x: x, y: GROUND - 20 - (i % 2) * 40, got: false }; }) };
+  }
+  /* PURE simulation step: state + input + dt -> state. No DOM, no clock, no Math.random: replayable. */
+  function step(s, mv, jumpPressed, dt) {
+    s.t += dt;
+    s.vx = mv * SPEED;
+    if (jumpPressed && s.onGround) { s.vy = -JUMP; s.onGround = false; }
+    s.vy += G * dt; s.x += s.vx * dt; s.y += s.vy * dt;
+    if (s.y >= GROUND) { s.y = GROUND; s.vy = 0; s.onGround = true; }
+    s.x = Math.max(8, Math.min(3000, s.x));
+    s.shake = Math.max(0, s.shake - dt * 4);
+    var got = 0;
+    s.coins.forEach(function (c) { if (!c.got && Math.abs(c.x - s.x) < 12 && Math.abs(c.y - s.y) < 18) { c.got = true; s.score++; s.shake = 1; got++; } });
+    return got;
+  }
+  var state = newState(), prevX = state.x, prevY = state.y, announce = [];
+  var input = new GameCore.Input(document.getElementById("stage"), { radius: 40 });
+  var jumpTap = false;
+  var shown = {};
+  function put(id, v) { v = String(v); if (shown[id] !== v) { shown[id] = v; document.getElementById(id).textContent = v; } }
+  function sync() { put("score", state.score); put("best", saved.best); }
+  var loop = new GameCore.Loop({
+    pauseOnBlur: opts.blur,
+    update: function (dt) {
+      prevX = state.x; prevY = state.y;
+      input.sample();
+      var j = input.pressed.jump || jumpTap; jumpTap = false;
+      var got = step(state, input.move.x, j, dt);
+      if (got) { announce.push("Coin collected. Score " + state.score); if (state.score > saved.best) { saved.best = state.score; persist(); } }
+    },
+    render: function (alpha) {
+      var dpr = Math.min(devicePixelRatio || 1, 3), cw = Math.round(cv.clientWidth * dpr), ch = Math.round(cv.clientHeight * dpr);
+      if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; }
+      var sc = cv.width / W; ctx.setTransform(sc, 0, 0, sc, 0, 0); ctx.imageSmoothingEnabled = false;
+      var rx = prevX + (state.x - prevX) * alpha, ry = prevY + (state.y - prevY) * alpha;     /* interpolate: smooth at any refresh rate */
+      var camX = Math.max(0, rx - W / 3), sh = opts.shake ? state.shake * 3 : 0;
+      ctx.fillStyle = "#0b1d33"; ctx.fillRect(0, 0, W, H);
+      ctx.save(); ctx.translate(-camX + (sh ? Math.sin(state.t * 90) * sh : 0), 0);
+      ctx.fillStyle = "#274b6d"; ctx.fillRect(0, GROUND, 3200, H - GROUND);
+      state.coins.forEach(function (c) { if (!c.got) { ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.arc(c.x, c.y - 6, 5, 0, 6.3); ctx.fill(); } });
+      ctx.fillStyle = "#ff7a59"; ctx.fillRect(rx - 6, ry - 12, 12, 12);
+      ctx.restore();
+      if (announce.length) { document.getElementById("status").textContent = announce.shift(); }
+      put("hud", loop.userPaused ? "Paused" : loop.autoPaused ? "Paused (tab hidden or window not focused)" : "");
+      window.__frames = (window.__frames || 0) + 1; sync();
+    },
+    onPause: function (why) { persist(); if (why === "user") { var b = document.getElementById("pause"); b.setAttribute("aria-pressed", "true"); b.textContent = "Resume"; } },
+    onResume: function (why) { if (why === "user") { var b = document.getElementById("pause"); b.setAttribute("aria-pressed", "false"); b.textContent = "Pause"; } }
+  });
+  function persist() { return save.save({ best: saved.best, opts: opts }); }
+  GameCore.Save.autosave(persist);
+  var $ = function (id) { return document.getElementById(id); };
+  $("pause").onclick = function () { loop.setPaused(!loop.userPaused); };
+  $("jump").onclick = function () { jumpTap = true; };
+  $("reset").onclick = function () { state = newState(); prevX = state.x; prevY = state.y; };
+  $("fs").onclick = function () {
+    var el = $("stage");
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    var p = el.requestFullscreen ? el.requestFullscreen() : null;
+    if (p && p.then) p.then(function () { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(function () {}); }).catch(function () { $("status").textContent = "Fullscreen is not available here."; });
+  };
+  [["o-shake", "shake"], ["o-blur", "blur"], ["o-toggle", "toggle"], ["o-hc", "hc"]].forEach(function (p) {
+    var el = $(p[0]); el.checked = !!opts[p[1]];
+    el.onchange = function () { opts[p[1]] = el.checked; if (p[1] === "blur") loop.setPauseOnBlur(el.checked); if (p[1] === "toggle") input.toggleMode.jump = el.checked; if (p[1] === "hc") document.body.classList.toggle("hc", el.checked); persist(); };
+  });
+  input.toggleMode.jump = !!opts.toggle; document.body.classList.toggle("hc", !!opts.hc);
+  $("o-speed").value = String(opts.speed); loop.timeScale = +opts.speed;
+  $("o-speed").onchange = function () { opts.speed = +$("o-speed").value; loop.timeScale = opts.speed; persist(); };
+  /* pause is handled OUTSIDE the fixed update: update() does not run while paused, so a pause key read there could never resume */
+  addEventListener("keydown", function (e) { if (!e.repeat && (e.code === "Escape" || e.code === "KeyP") && !e.ctrlKey && !e.metaKey && !e.altKey) { loop.setPaused(!loop.userPaused); } });
+  loop.start(); sync();
+  window.__g = { get state() { return state; }, set state(v) { state = v; }, loop: loop, input: input, newState: newState, step: step, save: save, opts: opts, GROUND: GROUND, persist: persist };
+  window.__ready = true;
+})();
+</script>
+</main>
+</body>
+</html>

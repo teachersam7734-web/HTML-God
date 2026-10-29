@@ -1,0 +1,151 @@
+{
+  "purpose": "Included portable reference assets and exclusions",
+  "included": [
+    {
+      "path": "assets/generated/neural-environment.png",
+      "bytes": 1932877,
+      "sha256": "537c6741accec2f52d4670fcfa9ebe3b7f1cb200365a7df8406f4c9580f727f4",
+      "mime": "image/png",
+      "origin": "Native image generator",
+      "role": "Artistic microscopic neural environment; not anatomical"
+    },
+    {
+      "path": "assets/generated/neural-knot.png",
+      "bytes": 1888215,
+      "sha256": "49ee83ef9b81df98929f8f1b2d21694e4fdd980d6ac4ae9aa6f8b6d04b20bf8f",
+      "mime": "image/png",
+      "origin": "Native image generator",
+      "role": "Conceptual neural visual; not anatomical"
+    },
+    {
+      "path": "assets/generated/premium-emerald.png",
+      "bytes": 1624660,
+      "sha256": "5fc4ebeb1076aa86c856d9e0a76028141026997c885d38c812b5a2a6d4c09bf5",
+      "mime": "image/png",
+      "origin": "Native image generator",
+      "role": "Emerald glass architecture concept background; non-personal"
+    },
+    {
+      "path": "assets/generated/premium-solar.png",
+      "bytes": 2073812,
+      "sha256": "9427aef055848937a9122224ab93e5d6c242277c4b352144501a9851ed6c571b",
+      "mime": "image/png",
+      "origin": "Native image generator",
+      "role": "Warm glass torus concept background; non-personal"
+    },
+    {
+      "path": "assets/models/brain-surface-LICENSE.txt",
+      "bytes": 697,
+      "sha256": "155d5760c9c29dd52593d792a7cea4982ec501889ba8d66c438091ec425928d6",
+      "mime": "text/plain",
+      "origin": "Notice written for this package",
+      "role": "CC BY-SA 4.0 attribution and change notice for brain-surface.bin"
+    },
+    {
+      "path": "assets/models/brain-surface.bin",
+      "bytes": 8039784,
+      "sha256": "c6299940c254ec8f936f2736feb2852c157cc92953662b76909ba5c879f90872",
+      "mime": "application/octet-stream",
+      "origin": "Brain Project/Z-Anatomy/BodyParts3D, CC BY-SA 4.0",
+      "role": "Adapted course-specific cortex geometry; see notice"
+    },
+    {
+      "path": "assets/models/CHARACTER-CREDITS.md",
+      "bytes": 2123,
+      "sha256": "c2a6009effa3ce2d49e1b2cee6510e1d68cc94151e1dbeee09e1eaecf3078b3d",
+      "mime": "text/markdown",
+      "origin": "Notice written for this package",
+      "role": "Credits, licences and file format for the three models"
+    },
+    {
+      "path": "assets/models/human.glb",
+      "bytes": 698560,
+      "sha256": "ce4d543e82e455d5a1253798c9759f12b9eec74929ddbca464447eeaa3a42c5d",
+      "mime": "application/octet-stream",
+      "origin": "Quaternius / UMRAM-Bilkent, CC0",
+      "role": "Rigged character; see model credits"
+    },
+    {
+      "path": "assets/models/robot.glb",
+      "bytes": 463988,
+      "sha256": "047f5e5fb3bb6d378bd1df16ca6137f2a596c99b3a1b5690b4020c05aaf6f319",
+      "mime": "application/octet-stream",
+      "origin": "Quaternius / Three.js examples, CC0",
+      "role": "Expressive robot; see model credits"
+    },
+    {
+      "path": "assets/fonts/BarlowCondensed-OFL.txt",
+      "bytes": 4377,
+      "sha256": "186d750eb496a4c17a76385f82be6aea2ac1cf2de074a811d63786cf374ea73f",
+      "mime": "text/plain",
+      "origin": "SIL Open Font License 1.1 text",
+      "role": "Licence notice for premium-BarlowCondensed-1.ttf"
+    },
+    {
+      "path": "assets/fonts/Manrope-OFL.txt",
+      "bytes": 4387,
+      "sha256": "58172e0c0fac2cda8a37b348164bb55e44b0e69051e557e92b1d3f6910141f7b",
+      "mime": "text/plain",
+      "origin": "SIL Open Font License 1.1 text",
+      "role": "Licence notice for premium-Manrope-1.ttf"
+    },
+    {
+      "path": "assets/fonts/orbitron-1.ttf",
+      "bytes": 17708,
+      "sha256": "a24fe8031eefd8451d40e31882868d768ce6bed7c3659293281b3c5c7732a952",
+      "mime": "application/octet-stream",
+      "origin": "Orbitron, (c) The Orbitron Project Authors, version 2.001, SIL OFL 1.1",
+      "role": "Display font, Bold; notice in Orbitron-OFL.txt"
+    },
+    {
+      "path": "assets/fonts/Orbitron-OFL.txt",
+      "bytes": 4426,
+      "sha256": "ab609b0e110d622435ff337cdf233288556e011bbf9bd0550be98846c0630819",
+      "mime": "text/plain",
+      "origin": "SIL Open Font License 1.1 text",
+      "role": "Licence notice for orbitron-1.ttf (Reserved Font Name: Orbitron)"
+    },
+    {
+      "path": "assets/fonts/premium-BarlowCondensed-1.ttf",
+      "bytes": 87120,
+      "sha256": "7dde307fa887fc65ff5830cfada77a7decc5dae8d3c816c9d39ba3f1af1c4ed7",
+      "mime": "application/octet-stream",
+      "origin": "Barlow Condensed, (c) The Barlow Project Authors, version 1.408, SIL OFL 1.1",
+      "role": "Cinematic heading font, Bold; notice in BarlowCondensed-OFL.txt"
+    },
+    {
+      "path": "assets/fonts/premium-Manrope-1.ttf",
+      "bytes": 95060,
+      "sha256": "f433e5d333be1128d8ec8a28b8aadd0314d10e14e4105406076666bc830fc15d",
+      "mime": "application/octet-stream",
+      "origin": "Manrope, (c) The Manrope Project Authors, version 4.504, SIL OFL 1.1",
+      "role": "Reading and interface font, Medium; notice in Manrope-OFL.txt"
+    }
+  ],
+  "excluded": [
+    {
+      "kind": "personal portrait and signature",
+      "reason": "Identity-specific user-supplied material; not a reusable default"
+    },
+    {
+      "kind": "generated portrait series",
+      "reason": "Identity-specific variants made with the portrait reference"
+    },
+    {
+      "kind": "book PDF, manuscript, covers and bonus manuscript",
+      "reason": "Course-specific authored and supplied content"
+    },
+    {
+      "kind": "background music and user-supplied films",
+      "reason": "Course-specific media and uncertain portability outside this project"
+    },
+    {
+      "kind": "password string",
+      "reason": "Local gate value is personal and provides no reusable security"
+    },
+    {
+      "kind": "third-party runtime libraries and paid templates",
+      "reason": "Install or acquire from the verified upstream source under its current terms"
+    }
+  ]
+}

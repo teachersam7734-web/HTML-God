@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gallery</title>
+<!--
+  vt-same.html: a same-document View Transition in one offline file. A card morphs into the detail hero (one shared
+  name, moved from the old element to the new one inside the update), direction types (forward, back) drive the root
+  crossfade, the persistent header has its own name so it does not crossfade, focus and the document title move with
+  the view, a second press mid-transition finishes the first, and the API is skipped (the DOM still changes) when it is
+  missing, the tab is hidden, or reduced motion is set.
+  verified: Windows 10, Node 24, Chrome headless via playwright-core 1.62, swiftshader: ../scripts/test-vt.mjs
+            (the hero group's keyframes run from the card's rectangle to the hero's, types, focus, title, names cleaned
+            up, double press, reduced motion); sensei-verify's sensei-gate.mjs in strict file://.
+            Rendered frames: paused at the middle and photographed (that found the aspect-ratio overflow fixed below).
+  not verified: Firefox and Safari rendering; frames other than the paused middle; screen reader speech of the view
+            change.
+  Origin: code-interaction/vt-same.html in the HTML-Sensei build project's research notes (not shipped) (HTML-Sensei's own code, lane D2). Changed here: focus
+          and title management, the card's name removed when the transition finishes (not on a timer), skipTransition
+          on a second press, a hidden-tab skip, header and landmarks, the snapshot aspect-ratio fix.
+-->
+<style>
+:root{--bg:#0e0f13;--fg:#f2efe8;--ac:#ffb454}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:18px/1.5 system-ui,sans-serif}
+header{position:sticky;top:0;z-index:2;background:#1b1d25;padding:12px 24px;view-transition-name:site-header}
+header h1{margin:0;font-size:1.2rem}
+:focus-visible{outline:3px solid #6ee7b7;outline-offset:3px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,14rem),1fr));gap:16px;padding:24px}
+.card{height:160px;border-radius:14px;border:2px solid transparent;color:#111;font:700 1.4rem system-ui;cursor:pointer;background:var(--c)}
+.detail{display:none;padding:24px}
+.detail .hero{height:300px;border-radius:14px;background:var(--c);width:100%}
+.detail h2:focus{outline:none}
+.back{font:inherit;padding:.5rem 1rem;border-radius:10px;border:2px solid var(--fg);background:transparent;color:var(--fg);margin-block-end:16px;cursor:pointer}
+body.is-detail .grid{display:none}
+body.is-detail .detail{display:block}
+
+/* Shared element: the name sits on exactly ONE element per snapshot. */
+.vt-active{view-transition-name:hero}
+::view-transition-group(hero){animation-duration:.45s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
+/* The card and the hero have different aspect ratios. By default each snapshot keeps its own ratio at the group's
+   width, so the old card overflowed the group as a tall faded box mid-morph (seen on a paused frame). Fill the group
+   and crop: object-fit alone still painted outside the box; overflow:clip removed it (paused frames compared). */
+::view-transition-old(hero),::view-transition-new(hero){height:100%;object-fit:cover;overflow:clip}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.3s}
+:root:active-view-transition-type(back)::view-transition-old(root){animation-name:out-right}
+@keyframes out-right{to{opacity:0;translate:40px 0}}
+
+/* The script skips the API under reduced motion; this covers any other caller. */
+@media (prefers-reduced-motion:reduce){
+  ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}
+}
+</style>
+</head>
+<body>
+<header><h1>Gallery</h1></header>
+<main>
+<div class="grid" id="grid">
+  <button class="card" data-i="0" style="--c:#ffb454">One</button>
+  <button class="card" data-i="1" style="--c:#6ee7b7">Two</button>
+  <button class="card" data-i="2" style="--c:#a78bfa">Three</button>
+</div>
+<section class="detail" id="detail" aria-labelledby="title"><button class="back" id="back">Back to the gallery</button><div class="hero" id="hero"></div><h2 id="title" tabindex="-1"></h2></section>
+</main>
+<script>
+(function(){
+  var grid=document.getElementById('grid'), hero=document.getElementById('hero'), title=document.getElementById('title');
+  var last=null, current=null; window.__log=[];
+
+  /* The one entry point: uses the API when it is there, otherwise just runs the update. Skips it for reduced motion
+     and hidden tabs (the update still runs), finishes a running transition before starting another, and returns the
+     ViewTransition (or null) so callers and tests can wait on it. */
+  function transition(update, types){
+    var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(!document.startViewTransition || reduce || document.hidden){ update(); window.__log.push('no-vt'); return null; }
+    if(current){ try{ current.skipTransition(); }catch(e){} }
+    var vt;
+    try { vt = document.startViewTransition({update:update, types:types||[]}); }   // object form carries types
+    catch(e){ vt = document.startViewTransition(update); }                           // callback-only engines
+    current = vt;
+    vt.finished.then(function(){ window.__log.push('finished'); }, function(){ window.__log.push('aborted'); })
+      .then(function(){ if(current === vt) current = null; });
+    return vt;
+  }
+
+  grid.addEventListener('click', function(e){
+    var card=e.target.closest('.card'); if(!card) return;
+    if(last && last !== card) last.classList.remove('vt-active');
+    last=card;
+    card.classList.add('vt-active');                  // the OLD state carries the name
+    transition(function(){
+      card.classList.remove('vt-active');             // never the same name twice in the NEW state
+      document.body.classList.add('is-detail');
+      hero.style.setProperty('--c', getComputedStyle(card).getPropertyValue('--c'));
+      title.textContent=card.textContent;
+      hero.classList.add('vt-active');                // the NEW state carries it
+      document.title=card.textContent+' | Gallery';
+      title.focus({preventScroll:true});              // the pressed card is now hidden: move focus or it falls to body
+    }, ['forward']);
+  });
+  document.getElementById('back').addEventListener('click', function(){
+    var card=last;
+    var vt=transition(function(){
+      hero.classList.remove('vt-active');
+      document.body.classList.remove('is-detail');
+      if(card){ card.classList.add('vt-active'); card.focus({preventScroll:true}); }   // morph back into its card
+      document.title='Gallery';
+    }, ['back']);
+    function clean(){ if(card) card.classList.remove('vt-active'); }
+    if(vt) vt.finished.then(clean, clean); else clean();
+  });
+})();
+</script>
+</body>
+</html>

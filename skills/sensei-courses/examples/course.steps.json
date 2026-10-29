@@ -1,0 +1,19 @@
+[
+  { "do": "click", "sel": "fieldset[data-type=mcq] .opt:nth-of-type(2)" },
+  { "do": "click", "sel": ".qwrap:nth-of-type(1) button.check" },
+  { "do": "wait", "ms": 200 },
+  { "do": "eval", "expr": "document.querySelector('.qwrap .fb').textContent.indexOf('Correct.') === 0", "expect": "true" },
+  { "do": "click", "sel": ".qwrap:nth-of-type(3) button.check" },
+  { "do": "eval", "expr": "document.querySelectorAll('.qwrap')[2].querySelector('.fb').textContent", "expect": "Choose an answer first." },
+  { "do": "fill", "sel": "[data-type=gap] input", "value": "banana" },
+  { "do": "click", "sel": ".qwrap:nth-of-type(3) button.check" },
+  { "do": "eval", "expr": "document.querySelectorAll('.qwrap')[2].querySelector('.fb').textContent.indexOf('Try again (1 left)') >= 0", "expect": "true" },
+  { "do": "shot", "name": "lesson-one-answering" },
+  { "do": "click", "sel": "#save-open" },
+  { "do": "wait", "ms": 200 },
+  { "do": "eval", "expr": "document.getElementById('dlg-save').matches(':modal') && document.getElementById('save-code').value.indexOf('CE1.') === 0", "expect": "true" },
+  { "do": "shot", "name": "progress-code" },
+  { "do": "press", "key": "Escape" },
+  { "do": "wait", "ms": 200 },
+  { "do": "eval", "expr": "document.activeElement.id", "expect": "save-open" }
+]

@@ -1,0 +1,17 @@
+{
+  "name": "html-god",
+  "private": true,
+  "description": "HTML God marketplace, shared creative skills and cinematic interview.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "validate": "node scripts/validate-package.mjs",
+    "interview": "node scripts/interview.mjs",
+    "test:interview": "node scripts/test-interview.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teachersam7734-web/HTML-God.git"
+  }
+}

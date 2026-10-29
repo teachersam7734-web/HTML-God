@@ -1,0 +1,84 @@
+{
+  "browser": "155.0.8059.84",
+  "matrix": {
+    "file://": {
+      "origin": "file://",
+      "isSecureContext": true,
+      "crossOriginIsolated": false,
+      "moduleScriptSrc": false,
+      "fetchSibling": "ERR TypeError Failed to fetch",
+      "wasmStreaming": "ERR TypeError Failed to fetch",
+      "workerFromFile": "ERR SecurityError Failed to construct 'Worker': Script at 'file:///C",
+      "workerFromBlob": true,
+      "importModuleDynamic": "ERR TypeError Failed to fetch dynamically imported module: file:",
+      "serviceWorker": "ERR TypeError Failed to register a ServiceWorker: The URL protoc",
+      "localStorage": true,
+      "indexedDB": true,
+      "cryptoSubtle": true,
+      "randomUUID": true,
+      "clipboardWrite": true,
+      "sharedArrayBuffer": false,
+      "mediaDevices": true,
+      "audioContext": "running",
+      "webgl2": true,
+      "xhrSibling": "ERR Error xhr error",
+      "canvasTaintFromFile": "tainted: SecurityError"
+    },
+    "http://127.0.0.1": {
+      "origin": "http://127.0.0.1:59102",
+      "isSecureContext": true,
+      "crossOriginIsolated": false,
+      "moduleScriptSrc": true,
+      "fetchSibling": true,
+      "wasmStreaming": true,
+      "workerFromFile": true,
+      "workerFromBlob": true,
+      "importModuleDynamic": true,
+      "serviceWorker": true,
+      "localStorage": true,
+      "indexedDB": true,
+      "cryptoSubtle": true,
+      "randomUUID": true,
+      "clipboardWrite": true,
+      "sharedArrayBuffer": false,
+      "mediaDevices": true,
+      "audioContext": "running",
+      "webgl2": true,
+      "xhrSibling": true,
+      "canvasTaintFromFile": "readable"
+    },
+    "http://insecure.test": {
+      "origin": "http://insecure.test:59102",
+      "isSecureContext": false,
+      "crossOriginIsolated": false,
+      "moduleScriptSrc": true,
+      "fetchSibling": true,
+      "wasmStreaming": true,
+      "workerFromFile": true,
+      "workerFromBlob": true,
+      "importModuleDynamic": true,
+      "serviceWorker": "navigator.serviceWorker undefined",
+      "localStorage": true,
+      "indexedDB": true,
+      "cryptoSubtle": false,
+      "randomUUID": false,
+      "clipboardWrite": false,
+      "sharedArrayBuffer": false,
+      "mediaDevices": false,
+      "audioContext": "running",
+      "webgl2": true,
+      "xhrSibling": true,
+      "canvasTaintFromFile": "readable"
+    }
+  },
+  "vtRes": {
+    "file://": {
+      "sawViewTransitionObject": "|a:reveal:none|b:reveal:vt",
+      "api": true
+    },
+    "http 127.0.0.1": {
+      "sawViewTransitionObject": "|a:reveal:none|b:reveal:vt",
+      "api": true
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "page": "docs/film/index.html",
+  "out": "D:\\SAM HQ\\Chat GPT Projects\\HTML God\\docs\\assets\\intro.mp4",
+  "frames": 1800,
+  "fps": 30,
+  "from": 0,
+  "to": 60,
+  "shutter": 1,
+  "angle": null,
+  "intermediate": "png",
+  "crf": 17,
+  "workers": 2,
+  "chunks": 6,
+  "chunksSkipped": 5,
+  "captures": 300,
+  "seconds": 106,
+  "capturesPerSecond": 2.83,
+  "glRenderer": "ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "chrome": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "ffmpeg": "C:\\Users\\Webhouse\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0-full_build\\bin\\ffmpeg.exe",
+  "events": [
+    {
+      "t": 0,
+      "type": "assembly"
+    },
+    {
+      "t": 6,
+      "type": "assembly"
+    },
+    {
+      "t": 10,
+      "type": "assembly"
+    },
+    {
+      "t": 18,
+      "type": "assembly"
+    },
+    {
+      "t": 23,
+      "type": "assembly"
+    },
+    {
+      "t": 35,
+      "type": "assembly"
+    },
+    {
+      "t": 42,
+      "type": "assembly"
+    },
+    {
+      "t": 53,
+      "type": "assembly"
+    }
+  ]
+}

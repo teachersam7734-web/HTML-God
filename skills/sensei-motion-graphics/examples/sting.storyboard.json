@@ -1,0 +1,12 @@
+{
+  "title": "Sting: read like a detective",
+  "duration": 8, "fps": 30, "lang": "en",
+  "idea": "Reading closely turns a full stop into a clue: the smallest mark on the page becomes the whole world.",
+  "beats": [
+    { "t": 0, "end": 1.1, "beat": "hook", "buys": "this is about reading, said with weight", "moves": "four words rise on uneven gaps (4, 3, 6 f), the first already mid-rise on frame 0, softLand 12 f, vertical smear 14 px halving", "still": false, "cut": "anchor", "carries": "the headline stays; only its tint settles" },
+    { "t": 1.1, "end": 3.65, "beat": "breath", "buys": "time to read the promise", "moves": "camera creep 1.0 to 1.035, linear", "still": true, "text": "Read like a detective.", "readFrom": 0.3, "cut": "carry", "carries": "the accent full stop stays put while its words leave, then grows into the next ground (T3)" },
+    { "t": 3.65, "end": 4.25, "beat": "turn", "buys": "the small thing matters", "moves": "words exit up with accelExit 13 f; bead grows in log space to cover the frame (crashOut 18 f)", "still": false, "cut": "anchor", "carries": "the accent colour is now the ground" },
+    { "t": 4.25, "end": 4.85, "beat": "proof", "buys": "a tool for looking closely", "moves": "magnifier ring whips in from 0.6 W (7 f) with horizontal smear", "still": false, "cut": "anchor", "carries": "the ring stays; the camera punches in on it" },
+    { "t": 4.85, "end": 8.0, "beat": "payoff", "buys": "what to do next", "moves": "one-frame camera punch to 0.74x, softLand tail, decaying shake; words resolve by blur focus 4 f each; one popOver dock; lockup still shrinking at the last frame", "still": false, "text": "Find the clue.", "readFrom": 5.32, "hold": 0 }
+  ]
+}

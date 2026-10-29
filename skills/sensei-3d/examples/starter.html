@@ -1,0 +1,117 @@
+<!doctype html>
+<!--
+  starter.html: the sensei-3d skeleton for any three.js page that must ship as one offline file. Every rule of the
+  skill's quality bar is in here once: poster first paint, WebGL failure fallback, pixel-ratio cap, ResizeObserver,
+  device tier as a starting point, reduced motion (one still frame, live preference changes), a visible pause control
+  (WCAG 2.2.2), pause when hidden or offscreen with no time jump on resume, context loss and restore, a seekable pure
+  function of t (window.__seek, ?t=), window.__done after the first frame, teardown that disposes everything.
+  Build: node ../scripts/build-vendor.mjs vendor entry-starter.js, then node ../scripts/inline3d.mjs starter.html out.html
+  verified: Windows 10, Chrome 155 + SwiftShader, three 0.186.1: gate3d.mjs passed (frames differ at two times, live
+            loop animates, reduced motion still, context loss round trip, no network, no console errors); the pause
+            button and teardown were exercised by script.
+  not verified: frame rate on a target device; the tier choice on real phones (navigator.deviceMemory is Chromium
+                only); Safari and Firefox.
+  Original code of this project (MIT-licensed three.js is loaded from the vendored bundle, which keeps its notice).
+-->
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>three.js starter</title>
+<style>
+  :root { --bg: #070b12; --fg: #e9eef7; --acc: #6cc8ff; color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 15px/1.4 system-ui, sans-serif; }
+  /* poster: a CSS gradient is the first paint; the canvas fades in on its first drawn frame */
+  .stage { position: fixed; inset: 0; background: radial-gradient(60% 60% at 60% 45%, #16314d, var(--bg)); }
+  canvas { display: block; width: 100%; height: 100%; opacity: 0; transition: opacity .6s ease-out; }
+  canvas.on { opacity: 1; }
+  .ui { position: fixed; left: 16px; bottom: 16px; display: flex; gap: 12px; align-items: center; }
+  button { font: inherit; color: var(--fg); background: #0d1626cc; border: 1px solid var(--acc); border-radius: 8px; padding: 8px 14px; min-height: 40px; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+  .msg { position: fixed; inset: 0; display: none; place-items: center; padding: 24px; text-align: center; }
+  @media (prefers-reduced-motion: reduce) { canvas { transition: none; } }
+  @media (forced-colors: active) { button { border: 1px solid ButtonText; } }
+</style>
+<div class="stage"><canvas id="c" role="img" aria-label="A slowly turning knot of light"></canvas></div>
+<div class="ui"><button id="pause" type="button" aria-pressed="false">Pause motion</button></div>
+<p class="msg" id="msg">3D is not available on this device. The page works without it.</p>
+<script src="vendor/t-starter.js"></script>
+<script>
+(async () => {
+const canvas = document.getElementById('c'), btn = document.getElementById('pause');
+const q = new URLSearchParams(location.search);
+const FIXED_T = q.has('t') ? parseFloat(q.get('t')) : null;
+const mqReduce = matchMedia('(prefers-reduced-motion: reduce)');
+if (FIXED_T !== null) canvas.style.transition = 'none';   // seek mode is for capture: no fade to catch half way
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+// Device tier: a starting point only (the render-scale governor in sensei-shaders-vfx corrects it at run time).
+function pickTier() {
+  const mem = navigator.deviceMemory || 4, cores = navigator.hardwareConcurrency || 4, coarse = matchMedia('(pointer: coarse)').matches;
+  if (coarse && (mem <= 2 || cores <= 4)) return 'low';
+  if (coarse || mem <= 4) return 'mid';
+  return 'high';
+}
+const TIER = { low: { seg: 96, dpr: 1.5 }, mid: { seg: 160, dpr: 2 }, high: { seg: 260, dpr: 2 } }[pickTier()];
+
+let renderer;
+try { renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' }); }
+catch (e) { document.getElementById('msg').style.display = 'grid'; canvas.remove(); window.__done = true; return; }   // no WebGL: the poster stays
+// Renderer state is re-applied after a context restore: on three 0.186.1 the clear colour came back black and the
+// shading changed when it was set only once (found here with gate3d.mjs).
+function applyRendererState() { renderer.setClearColor(0x070b12, 1); renderer.outputColorSpace = T.SRGBColorSpace; renderer.toneMapping = T.ACESFilmicToneMapping; }
+applyRendererState();
+
+const scene = new T.Scene();
+const camera = new T.PerspectiveCamera(36, 1, 0.1, 100); camera.position.set(0, 0.1, 9);
+scene.add(new T.HemisphereLight(0x9fd8ff, 0x1a0f2a, 0.9));
+const key = new T.DirectionalLight(0xffffff, 2.2); key.position.set(3, 4, 5); scene.add(key);
+const mat = new T.MeshStandardMaterial({ color: new T.Color('#4fb8ff'), metalness: 0.35, roughness: 0.32 });
+const mesh = new T.Mesh(new T.TorusKnotGeometry(1.5, 0.42, TIER.seg, 32), mat); scene.add(mesh);
+
+function size() {
+  const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return;     // display:none: wait for the next observation
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, TIER.dpr)); renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix(); if (!running()) frame(lastT);
+}
+
+let lastT = FIXED_T ?? 1.0, first = true;
+function frame(t) {                       // pure function of t
+  lastT = t;
+  mesh.rotation.y = t * 0.35; mesh.rotation.x = Math.sin(t * 0.4) * 0.3;
+  renderer.render(scene, camera);
+  if (first) { first = false; canvas.classList.add('on'); }
+}
+window.__seek = frame;
+
+// The loop runs only when every gate is open; elapsed time is kept so a resume never jumps.
+let raf = 0, elapsed = lastT, t0 = 0, userPaused = store.get('motion-paused') === '1', onScreen = true;
+const running = () => raf !== 0;
+const allowed = () => FIXED_T === null && !mqReduce.matches && !userPaused && !document.hidden && onScreen;
+function loop(now) { raf = requestAnimationFrame(loop); elapsed = (now - t0) / 1000; frame(elapsed); }
+function sync() {
+  const want = allowed();
+  if (!want && running()) { cancelAnimationFrame(raf); raf = 0; }
+  if (!running()) frame(mqReduce.matches && FIXED_T === null ? 1.0 : (FIXED_T ?? elapsed));   // reduced motion: one chosen still
+  if (want && !running()) { t0 = performance.now() - elapsed * 1000; raf = requestAnimationFrame(loop); }
+  btn.textContent = userPaused ? 'Play motion' : 'Pause motion'; btn.setAttribute('aria-pressed', String(userPaused));
+  btn.hidden = mqReduce.matches || FIXED_T !== null;
+}
+btn.addEventListener('click', () => { userPaused = !userPaused; store.set('motion-paused', userPaused ? '1' : '0'); sync(); });
+mqReduce.addEventListener('change', sync);
+document.addEventListener('visibilitychange', sync);
+new IntersectionObserver(es => { onScreen = es[0].isIntersecting; sync(); }).observe(canvas);
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); cancelAnimationFrame(raf); raf = 0; });
+canvas.addEventListener('webglcontextrestored', () => { applyRendererState(); sync(); });   // three re-creates programs and buffers; we re-apply its state
+
+window.__teardown = () => {                // for pages that mount and unmount a stage (a lesson widget)
+  cancelAnimationFrame(raf); raf = 0;
+  scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach(m => m.dispose()); });
+  renderer.dispose(); renderer.forceContextLoss();
+};
+
+new ResizeObserver(size).observe(canvas); size();
+await renderer.compileAsync(scene, camera);   // compile during load, not on the first visible frame
+sync();
+window.__done = true;
+})();
+</script>
+</html>

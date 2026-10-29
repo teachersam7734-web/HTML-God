@@ -1,0 +1,16 @@
+{
+  "name": "html-god",
+  "owner": {
+    "name": "teachersam7734-web"
+  },
+  "metadata": {
+    "description": "HTML God: a creative HTML marketplace for Claude Code and Codex."
+  },
+  "plugins": [
+    {
+      "name": "html-god",
+      "source": "./",
+      "description": "HTML Router, 28 skills, 16 Claude Code agents, cinematic interviews, 3D and motion graphics."
+    }
+  ]
+}

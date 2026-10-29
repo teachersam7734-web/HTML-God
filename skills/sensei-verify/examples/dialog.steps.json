@@ -1,0 +1,11 @@
+[
+  { "do": "click", "sel": "#open" },
+  { "do": "eval", "expr": "document.getElementById('dlg').open", "expect": "true" },
+  { "do": "eval", "expr": "document.activeElement && document.activeElement.id", "expect": "close" },
+  { "do": "shot", "name": "dialog-open" },
+  { "do": "press", "key": "Escape" },
+  { "do": "wait", "ms": 200 },
+  { "do": "eval", "expr": "document.getElementById('dlg').open", "expect": "false" },
+  { "do": "eval", "expr": "document.activeElement && document.activeElement.id", "expect": "open" },
+  { "do": "text", "has": "Settings" }
+]

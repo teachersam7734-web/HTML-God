@@ -1,0 +1,20 @@
+{
+  "name": "html-god",
+  "interface": {
+    "displayName": "HTML God"
+  },
+  "plugins": [
+    {
+      "name": "html-god",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Creativity"
+    }
+  ]
+}

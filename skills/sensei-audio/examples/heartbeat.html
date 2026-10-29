@@ -1,0 +1,104 @@
+<!doctype html>
+<!--
+  heartbeat.html: a sound and a visual pulse in step, with the AUDIO clock as master.
+  A 25 ms look-ahead scheduler books each beat about 100 ms ahead on AudioContext.currentTime (the look-ahead pattern of the sensei-sfx.js
+  scheduler) and starts a Web Animation for the same beat at the matching document-timeline time (currentTime plus
+  the reported output latency; see the note in toTimeline). Each beat is its own short animation, so a tempo change never rescales a running animation
+  (changing the duration of an infinite CSS animation rescales its progress and the pulse jumps phase).
+  Falls back to performance.now() when there is no context or it is suspended (the picture still pulses, silently).
+  Stops on visibilitychange. Reduced motion: no scale pulse; the beat shows as a small dot that changes colour, and
+  the BPM is in text. Sound starts only from the Start button (a gesture), and the button says what it does.
+  Runs in place (it loads ../scripts/sensei-sfx.js); for a single file, inline that script.
+  verified: Windows 10, Chrome 155 headless (scripts/test-audio.mjs): after Start, one animation per scheduled beat,
+            each animation's start within 2 ms of its beat's audio time mapped to the document timeline (re-mapped
+            after the beat with a fresh output timestamp); tempo change keeps the spacing exact; reduced motion makes
+            no scale animation; Stop and a hidden tab stop the scheduler. The SENSEI-LOG field entry measured 1 to
+            18 ms picture-to-sound on the owner's machine.
+  not verified: acoustic latency on real output devices (headless reports outputLatency 0); Safari and iOS.
+  Original code of this project.
+-->
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Heartbeat</title>
+<style>
+  :root { --bg: #0d0f14; --fg: #eef1f7; --acc: #ff5a6e; color-scheme: dark; }
+  @media (prefers-color-scheme: light) { :root { --bg: #f4f5f8; --fg: #111522; --acc: #c8243a; color-scheme: light; } }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+  main { display: grid; place-items: center; gap: 20px; min-height: 100vh; padding: 24px; box-sizing: border-box; }
+  .heart { width: 120px; height: 120px; border-radius: 50%; background: var(--acc); }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: currentColor; opacity: .35; display: none; }
+  .row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  button { font: inherit; color: var(--fg); background: transparent; border: 1px solid var(--acc); border-radius: 8px; padding: 8px 16px; min-height: 40px; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .dot { display: inline-block; } }
+  @media (forced-colors: active) { .heart { background: CanvasText; } button { border-color: ButtonText; } }
+</style>
+<main>
+  <div class="heart" id="heart" role="img" aria-label="Heart that pulses on each beat"></div>
+  <p class="row"><span class="dot" id="dot" aria-hidden="true"></span><span id="bpmText">72 beats per minute</span></p>
+  <div class="row">
+    <button id="go" type="button" aria-pressed="false">Start sound and pulse</button>
+    <label>Tempo <input id="bpm" type="range" min="40" max="160" value="72" aria-label="Tempo in beats per minute"></label>
+  </div>
+</main>
+<script src="../scripts/sensei-sfx.js"></script>
+<script>
+(function () {
+  'use strict';
+  var heart = document.getElementById('heart'), dot = document.getElementById('dot');
+  var go = document.getElementById('go'), bpmIn = document.getElementById('bpm'), bpmText = document.getElementById('bpmText');
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  var sfx = SenseiSFX.create({ storageKey: 'heartbeat-demo' });
+  var running = false, timer = 0, nextT = 0, beat = 0, bpm = +bpmIn.value;
+  var LOOKAHEAD = 0.1, TICK = 25;
+  var log = window.__beats = [];                         // QA: one row per scheduled beat
+  var QA = /[?&]qa(&|$)/.test(location.search);
+
+  function audioOK() { return sfx.ctx && sfx.ctx.state === 'running'; }
+  function now() { return audioOK() ? sfx.ctx.currentTime : performance.now() / 1000; }
+  // Audio time to document-timeline time (ms); document.timeline shares performance.now()'s origin. The sound is
+  // heard (outputLatency + baseLatency) after it is scheduled, so the picture is delayed by the same amount.
+  // getOutputTimestamp() is the API meant for this, but in headless Chrome its pairs jumped by up to 150 ms between
+  // calls (tested here), so the mapping uses currentTime, which moves in audio-callback steps.
+  function toTimeline(t) {
+    if (!audioOK()) return t * 1000;
+    var c = sfx.ctx, lat = (c.outputLatency || 0) + (c.baseLatency || 0);
+    return performance.now() + (t - c.currentTime + lat) * 1000;
+  }
+  function lubDub(t) {
+    if (!audioOK()) return;
+    var c = sfx.ctx, m = sfx._master();
+    [[0, 62, 0.9], [0.16, 54, 0.6]].forEach(function (p) {
+      var o = c.createOscillator(), g = c.createGain(), s = t + p[0];
+      o.type = 'sine'; o.frequency.setValueAtTime(p[1] * 1.6, s); o.frequency.exponentialRampToValueAtTime(p[1], s + 0.08);
+      sfx.env(g, s, p[2], 0.006, 0.14, 0, 0.02); o.connect(g); g.connect(m); o.start(s); o.stop(s + 0.2);
+    });
+  }
+  function pulse(t) {
+    var at = toTimeline(t), a;
+    if (reduce.matches) a = dot.animate([{ opacity: 1 }, { opacity: 0.35 }], { duration: 300, easing: 'ease-out' });
+    else a = heart.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.14)', offset: 0.12 }, { transform: 'scale(1)', offset: 0.3 },
+      { transform: 'scale(1.07)', offset: 0.42 }, { transform: 'scale(1)' }], { duration: 520, easing: 'ease-out' });
+    a.startTime = at;                                  // starts on the beat, not when this code ran
+    var row = { beat: beat, audioT: t, startTime: at, kind: reduce.matches ? 'dot' : 'scale', heardAt: null };
+    log.push(row);
+    if (QA && audioOK()) sfx.atHeard(t, function () { row.heardAt = performance.now(); });   // ?qa: measure, frame-accurate
+  }
+  function pump() {
+    while (nextT < now() + LOOKAHEAD) { lubDub(nextT); pulse(nextT); nextT += 60 / bpm; beat++; }
+  }
+  function start() {
+    sfx.ensure();
+    var p = sfx.ctx && sfx.ctx.resume ? sfx.ctx.resume() : null;          // inside the click: the autoplay unlock
+    var begin = function () { nextT = now() + 0.05; running = true; pump(); timer = setInterval(pump, TICK); label(); };
+    if (p && p.then) p.then(begin, begin); else begin();
+  }
+  function stop() { running = false; clearInterval(timer); timer = 0; label(); }
+  function label() { go.textContent = running ? 'Stop sound and pulse' : 'Start sound and pulse'; go.setAttribute('aria-pressed', String(running)); }
+  go.addEventListener('click', function () { running ? stop() : start(); });
+  bpmIn.addEventListener('input', function () { bpm = +bpmIn.value; bpmText.textContent = bpm + ' beats per minute'; });
+  document.addEventListener('visibilitychange', function () { if (document.hidden && running) stop(); });
+  window.__heartbeat = { start: start, stop: stop, toTimeline: toTimeline, get running() { return running; }, get audio() { return audioOK(); } };
+})();
+</script>
+</html>

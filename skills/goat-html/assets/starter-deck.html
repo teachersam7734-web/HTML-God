@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Starter Deck: replace me</title>
+<meta name="description" content="GOAT-HTML deck starter: fixed 1920 by 1080 canvas, keyboard, swipe and buttons, presenter notes, print to one page per slide; offline, no network requests.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📽️</text></svg>">
+<!-- Fonts: no network request. Decks are the classic venue-wifi case, so nothing loads at run time.
+     The stacks use Space Grotesk, Inter and JetBrains Mono when installed, else system faces; to ship a
+     named family, embed it as a base64 woff2 @font-face (references/media-embedding.md section 4). -->
+<style>
+/* ============ TOKENS: swap to retheme (presentations.md section 4) ============ */
+:root{
+  --bg:#0b0a14; --ink:#f4f2ff; --dim:#a09ab8;
+  --accent:#7c6cff; --accent2:#4fd1c5;
+  --line:rgba(255,255,255,.1);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --font-d:'Space Grotesk',ui-sans-serif,system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --font-b:'Inter',ui-sans-serif,system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --font-m:'JetBrains Mono',ui-monospace,'Cascadia Mono',Consolas,Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-b);overflow:hidden;
+  -webkit-font-smoothing:antialiased}
+h1,h2,.dsp{font-family:var(--font-d);letter-spacing:-.015em}
+.mono{font-family:var(--font-m)}
+:focus-visible{outline:3px solid var(--accent2);outline-offset:3px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ============ FIXED CANVAS + SCALE (presentations.md section 1) ============
+   Do not centre an oversized canvas with grid/flex place-items: a child larger than its container
+   lays out at x = 0 and scales about its own centre, which left the deck off-screen in real Chromium
+   testing. Explicit arithmetic translate is deterministic.
+   touch-action: pan-y pinch-zoom lets Pointer Events see a horizontal swipe (otherwise the browser
+   takes the gesture and sends pointercancel) while keeping pinch zoom. Never touch-action: none. */
+#stage{position:fixed;inset:0;touch-action:pan-y pinch-zoom}
+#deck{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:top left}
+
+/* ============ SLIDES ============ */
+.slide{position:absolute;inset:0;display:none;padding:120px 140px;flex-direction:column}
+.slide.on{display:flex;animation:slideIn .5s var(--ease) both}
+@keyframes slideIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.slide .kicker{font:600 22px/1 var(--font-m);letter-spacing:5px;text-transform:uppercase;color:var(--accent2)}
+.slide h1{font-size:110px;line-height:1.04;margin:28px 0 22px}
+.slide h2{font-size:64px;line-height:1.08;margin:24px 0 18px}
+.slide .statement{font:700 88px/1.12 var(--font-d);letter-spacing:-.02em;max-width:22ch}
+.slide p{font-size:30px;line-height:1.6;color:var(--dim);max-width:34ch}
+.slide .foot{margin-top:auto;display:flex;justify-content:space-between;align-items:center;
+  border-top:1px solid var(--line);padding-top:22px;font:500 20px/1 var(--font-m);
+  letter-spacing:2px;color:var(--dim);text-transform:uppercase}
+.accent{color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:20px}
+.card{padding:44px;border:1px solid var(--line);border-radius:24px;background:rgba(255,255,255,.025)}
+.card h3{font:700 34px/1.2 var(--font-d);margin-bottom:12px}
+.card p{font-size:24px;max-width:none}
+.notes{display:none} /* speaker notes: read by the presenter window, never shown in the audience view */
+
+/* ============ CHROME ============ */
+#progress{position:fixed;left:0;bottom:0;height:4px;background:var(--accent);width:0;
+  transition:width .4s var(--ease);z-index:50}
+#controls{position:fixed;right:20px;bottom:14px;z-index:60;display:flex;gap:8px;align-items:center}
+#controls button{font:600 13px/1 var(--font-m);letter-spacing:1px;color:var(--ink);cursor:pointer;
+  min-width:44px;min-height:44px;padding:0 12px;border-radius:10px;
+  border:1px solid var(--line);background:rgba(11,10,20,.7)}
+#controls button:hover{border-color:var(--accent2)}
+#pageno{font:600 15px/1 var(--font-m);letter-spacing:2px;color:var(--dim);padding:0 6px}
+#hint{position:fixed;left:24px;bottom:26px;z-index:50;
+  font:500 13px/1 var(--font-m);letter-spacing:1.5px;color:var(--dim)}
+
+/* ============ REDUCED MOTION: same deck, no slide or bar animation ============ */
+@media (prefers-reduced-motion: reduce){
+  .slide.on{animation:none}
+  #progress{transition:none}
+}
+
+/* ============ PRINT (presentations.md section 7): one 1920 by 1080 page per slide ============ */
+@page{size:1920px 1080px;margin:0}
+@media print{
+  html,body{height:auto;overflow:visible;background:var(--bg);
+    -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #stage{position:static}
+  #deck{position:static;transform:none!important;width:1920px;height:auto}
+  .slide{display:flex!important;position:relative;inset:auto;width:1920px;height:1080px;
+    animation:none!important;break-after:page;page-break-after:always}
+  .slide:last-child{break-after:auto;page-break-after:auto} /* no blank page after the last slide */
+  #progress,#controls,#hint{display:none}
+}
+</style>
+</head>
+<body>
+<main id="stage" aria-label="Slides">
+  <div id="deck">
+
+  <section class="slide">
+    <div class="kicker">goat-html deck starter</div>
+    <h1>Your title<br><span class="accent">here.</span></h1>
+    <p>Fixed 1920 by 1080 canvas, keyboard first, presenter notes, print ready.
+       Press <b>Right</b> to begin, <b>F</b> for fullscreen, <b>P</b> for presenter mode.</p>
+    <div class="foot"><span>Author Name</span><span>2026</span></div>
+    <aside class="notes">Open with the one-sentence promise of this deck. Pause.</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">statement</div>
+    <h2 class="statement">One idea per slide, <span class="accent">stated as a sentence.</span></h2>
+    <div class="grid2">
+      <div class="card"><h3>Support A</h3><p>At most 40 words per slide for talks; this card carries the first proof point.</p></div>
+      <div class="card"><h3>Support B</h3><p>Duplicate this slide's structure for the closed layout set (section 4 of presentations.md).</p></div>
+    </div>
+    <div class="foot"><span>Section one</span><span>02 / 03</span></div>
+    <aside class="notes">One idea per slide: state it, then support it with the two cards.</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">the ask</div>
+    <h2 class="statement">The one number<br>they should <span class="accent">remember.</span></h2>
+    <p>Replace with your closing statement. Footer cites the source.</p>
+    <div class="foot"><span>Thank you</span><span>03 / 03</span></div>
+    <aside class="notes">Close with the ask. Leave the number on screen during questions.</aside>
+  </section>
+
+  </div>
+  <div id="live" class="sr-only" aria-live="polite"></div>
+</main>
+<div id="progress" aria-hidden="true"></div>
+<nav id="controls" aria-label="Deck controls">
+  <button type="button" id="btn-prev" aria-label="Previous slide">&larr;</button>
+  <span id="pageno" aria-hidden="true"></span>
+  <button type="button" id="btn-next" aria-label="Next slide">&rarr;</button>
+  <button type="button" id="btn-presenter" aria-label="Open presenter view">P</button>
+</nav>
+<div id="hint" aria-hidden="true">Left / Right navigate, F fullscreen, P presenter</div>
+
+<script>
+'use strict';
+/* ============ DECK ENGINE: fixed canvas, hash state, keyboard first ============
+   verified (Windows 10, Chrome via playwright-core, strict file://): HTML-Sensei's gate; centring
+   self-check; keys, buttons and hash; print to PDF gives one 1920x1080 page per slide.
+   not verified: Firefox and Safari; real touch hardware (swipe is coded to HTML-Sensei's rule,
+   exercised only with synthetic pointer events); the presenter window in a real popup-enabled browser. */
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+const deck=$('#deck'), slides=[...$$('.slide')];
+const W=1920,H=1080;
+let cur=0;
+function slideTitle(s){const h=s.querySelector('h1,h2');if(!h)return '';
+  const c=h.cloneNode(true);c.querySelectorAll('br').forEach(br=>br.replaceWith(' '));
+  return c.textContent.trim().replace(/\s+/g,' ')}
+slides.forEach((s,i)=>{
+  const t=slideTitle(s);
+  s.setAttribute('role','region');
+  s.setAttribute('aria-roledescription','slide');
+  s.setAttribute('aria-label',`${i+1} of ${slides.length}: ${t}`);
+});
+function fit(){
+  const s=Math.min(innerWidth/W,innerHeight/H);
+  const ox=(innerWidth-W*s)/2, oy=(innerHeight-H*s)/2;
+  deck.style.transform=`translate(${ox}px,${oy}px) scale(${s})`;
+  deckSanity();
+}
+/* self-check: the active slide must be hittable at viewport centre (verification gate) */
+function deckSanity(){
+  const el=document.elementFromPoint(innerWidth/2,innerHeight/2);
+  window.__centred=!!el&&deck.contains(el);
+  if(!window.__centred)console.warn('GOAT-HTML deck: content not hittable at centre; check fit()');
+}
+function pad(n){return String(n).padStart(2,'0')}
+function render(announce){
+  slides.forEach((s,i)=>{const on=i===cur;s.classList.toggle('on',on);s.inert=!on;
+    if(on)s.removeAttribute('aria-hidden');else s.setAttribute('aria-hidden','true')});
+  $('#pageno').textContent=`${pad(cur+1)} / ${pad(slides.length)}`;
+  $('#progress').style.width=`${(cur+1)/slides.length*100}%`;
+  if(location.hash!=='#'+(cur+1))history.replaceState(null,'','#'+(cur+1));
+  if(announce)$('#live').textContent=slides[cur].getAttribute('aria-label');
+  syncPresenter();
+}
+function go(i){const n=Math.max(0,Math.min(slides.length-1,i));if(n===cur)return;cur=n;render(true)}
+function next(){go(cur+1)} function prev(){go(cur-1)}
+function toggleFullscreen(){
+  if(document.fullscreenElement)document.exitFullscreen();
+  else document.documentElement.requestFullscreen?.().catch(()=>{});
+}
+addEventListener('keydown',e=>{
+  if(e.repeat||e.ctrlKey||e.altKey||e.metaKey)return;            /* a held key or clicker repeat must not skip slides */
+  if(e.target.closest('input,textarea,select,[contenteditable]'))return;
+  const onButton=e.target.closest('button,a');
+  const k=e.key;
+  if(['ArrowRight','PageDown'].includes(k)||(!onButton&&[' ','Enter'].includes(k))){e.preventDefault();next()}
+  else if(['ArrowLeft','PageUp','Backspace'].includes(k)){e.preventDefault();prev()}
+  else if(k==='Home'){e.preventDefault();go(0)}
+  else if(k==='End'){e.preventDefault();go(slides.length-1)}
+  else if(k==='f'||k==='F')toggleFullscreen();
+  else if(k==='p'||k==='P')openPresenter();
+});
+$('#btn-prev').addEventListener('click',prev);
+$('#btn-next').addEventListener('click',next);
+$('#btn-presenter').addEventListener('click',openPresenter);
+/* click zones on the stage: left third back, the rest forward (not on links or controls) */
+$('#stage').addEventListener('click',e=>{
+  if(e.button!==0||e.target.closest('a,button,input,select,textarea,[contenteditable]'))return;
+  if(e.clientX<innerWidth/3)prev();else next();
+});
+/* swipe with Pointer Events: horizontal travel over 50 px, over 1.5 x vertical, within 800 ms */
+let sw=null;
+$('#stage').addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse'||e.target.closest('a,button'))return;
+  sw={x:e.clientX,y:e.clientY,t:performance.now()};
+});
+$('#stage').addEventListener('pointerup',e=>{
+  if(!sw)return;const dx=e.clientX-sw.x, dy=e.clientY-sw.y, dt=performance.now()-sw.t;sw=null;
+  if(Math.abs(dx)>50&&Math.abs(dx)>1.5*Math.abs(dy)&&dt<800){dx<0?next():prev()}
+});
+$('#stage').addEventListener('pointercancel',()=>{sw=null});
+addEventListener('resize',fit);addEventListener('fullscreenchange',fit);
+addEventListener('hashchange',()=>{const h=parseInt(location.hash.slice(1),10);if(h>=1&&h<=slides.length)go(h-1)});
+
+/* ============ PRESENTER VIEW (presentations.md section 3) ============
+   A second window that talks to this one with postMessage only, tagged {src:'deck'} and checked by
+   event.source. Not BroadcastChannel (Firefox gives each file:// page its own origin) and not
+   localStorage events (storage can throw on file://). It must be opened from a key press or click.
+   Its script tags are written <\u0073cript> and <\/script> inside the template so the page's own
+   script element is not closed early and static tag counters see one script. */
+let pwin=null;
+function openPresenter(){
+  if(pwin&&!pwin.closed){pwin.focus();return}
+  pwin=window.open('','goat-presenter','width=960,height=700');
+  if(!pwin){$('#live').textContent='The presenter window was blocked by the browser. Allow pop-ups for this file and press P again.';return}
+  pwin.document.open();
+  pwin.document.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Presenter</title>
+<style>body{background:#111;color:#eee;font:16px/1.5 ui-monospace,Consolas,monospace;padding:16px}
+#notes{white-space:pre-wrap;border-left:3px solid #7c6cff;padding-left:12px;margin:16px 0;min-height:120px;font-size:20px}
+#meta{color:#bbb}button{font:inherit;min-height:44px;padding:0 14px;margin-right:8px}</style></head>
+<body><div id="meta"></div><div id="clock" aria-label="Elapsed time"></div><div id="notes"></div>
+<button type="button" data-cmd="prev">Previous</button><button type="button" data-cmd="next">Next</button>
+<\u0073cript>
+const t0=Date.now();
+setInterval(()=>{const s=Math.floor((Date.now()-t0)/1000);document.getElementById('clock').textContent=
+  'Elapsed '+String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')},1000);
+document.addEventListener('click',e=>{const c=e.target.dataset&&e.target.dataset.cmd;
+  if(c&&opener)opener.postMessage({src:'deck',cmd:c},'*')});
+addEventListener('keydown',e=>{const c={ArrowRight:'next',ArrowLeft:'prev',PageDown:'next',PageUp:'prev'}[e.key];
+  if(c&&opener){e.preventDefault();opener.postMessage({src:'deck',cmd:c},'*')}});
+addEventListener('message',e=>{if(e.source!==opener||!e.data||e.data.src!=='deck'||!e.data.slide)return;
+  document.getElementById('meta').textContent='Slide '+e.data.slide+' of '+e.data.total+': '+e.data.title;
+  document.getElementById('notes').textContent=e.data.notes||'(no notes)'});
+opener&&opener.postMessage({src:'deck',cmd:'hello'},'*');
+<\/script></body></html>`);
+  pwin.document.close();
+}
+function syncPresenter(){
+  if(!pwin||pwin.closed)return;
+  const s=slides[cur];
+  pwin.postMessage({src:'deck',slide:cur+1,total:slides.length,
+    title:slideTitle(s).slice(0,80),
+    notes:(s.querySelector('.notes')?.textContent||'').trim()},'*');
+}
+addEventListener('message',e=>{
+  if(!pwin||e.source!==pwin||!e.data||e.data.src!=='deck')return;
+  if(e.data.cmd==='next')next(); else if(e.data.cmd==='prev')prev(); else if(e.data.cmd==='hello')syncPresenter();
+});
+
+/* restore from hash, then first render */
+const h=parseInt((location.hash||'#1').slice(1),10);if(h>=1&&h<=slides.length)cur=h-1;
+render(false);fit();
+</script>
+</body>
+</html>

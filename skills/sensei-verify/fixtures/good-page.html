@@ -1,0 +1,70 @@
+<!doctype html>
+<!-- good-page.html: the fixture the gate must PASS. A small offline page with a live 2D canvas, a CSS animation, a
+     reduced-motion path, visible focus, forced-colours borders, guarded storage and a dark scheme. If the gate fails
+     this page, the gate is broken. Original HTML-Sensei code.
+     verified: passes every sensei-gate check over file:// and http:// in test-gate.mjs (Chrome, software GL, Windows).
+     not verified: Firefox, Safari, a screen reader. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gate fixture: a good page</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f6f4ef; --fg: #1d1c1a; --accent: #0b5cad; --card: #ffffff; --line: #8a857c; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #15161a; --fg: #ecebe8; --accent: #8cc4ff; --card: #23252b; --line: #8b8f99; } }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: auto; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 1rem/1.6 system-ui, sans-serif; }
+  .skip { position: absolute; left: 1rem; top: -4rem; padding: .6rem 1rem; background: var(--card); color: var(--fg); border: 2px solid var(--accent); }
+  .skip:focus { top: 1rem; }
+  header, main, footer { max-width: 46rem; margin: 0 auto; padding: 1.5rem 1rem; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 .5rem; }
+  canvas { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; border: 1px solid var(--line); background: var(--card); }
+  .pulse { display: inline-block; width: 1rem; height: 1rem; border-radius: 50%; background: var(--accent); animation: pulse 1.6s ease-in-out infinite; vertical-align: middle; }
+  @keyframes pulse { 50% { transform: scale(.6); opacity: .5; } }
+  button, a { color: var(--accent); }
+  button { font: inherit; min-height: 2.75rem; padding: .5rem 1rem; background: var(--card); color: var(--fg); border: 1px solid var(--line); border-radius: .5rem; cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: .75rem; padding: 1rem; margin: 1rem 0; }
+  @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header><h1>A page the gate should pass</h1><p><span class="pulse" aria-hidden="true"></span> A live canvas and a gentle pulse.</p></header>
+<main id="main" tabindex="-1">
+  <canvas id="c" width="800" height="400" role="img" aria-label="Three coloured dots drifting on a wave"></canvas>
+  <div class="card">
+    <h2>Controls</h2>
+    <p><button id="toggle" type="button" aria-pressed="false">Pause the animation</button></p>
+    <p id="visits">Visits on this device: not stored.</p>
+    <p><a href="#main">Back to the top of the content</a></p>
+  </div>
+</main>
+<footer><p>Gate fixture. Nothing here loads from the network.</p></footer>
+<script>
+(() => {
+  const c = document.getElementById('c'), g = c.getContext('2d');
+  const rm = matchMedia('(prefers-reduced-motion: reduce)');
+  let paused = false, raf = 0;
+  const draw = t => {
+    const s = getComputedStyle(document.documentElement);
+    g.fillStyle = s.getPropertyValue('--card').trim() || '#fff'; g.fillRect(0, 0, c.width, c.height);
+    const cols = ['#d9480f', '#2b8a3e', '#1971c2'];
+    for (let i = 0; i < 3; i++) {
+      const x = (c.width * (i + 1)) / 4, y = c.height / 2 + Math.sin(t / 700 + i * 2) * c.height * 0.25;
+      g.beginPath(); g.arc(x, y, 34, 0, Math.PI * 2); g.fillStyle = cols[i]; g.fill();
+    }
+  };
+  const loop = t => { draw(t); raf = requestAnimationFrame(loop); };
+  const sync = () => { cancelAnimationFrame(raf); if (rm.matches || paused || document.hidden) draw(0); else raf = requestAnimationFrame(loop); };
+  rm.addEventListener('change', sync); document.addEventListener('visibilitychange', sync);
+  const b = document.getElementById('toggle');
+  b.addEventListener('click', () => { paused = !paused; b.setAttribute('aria-pressed', String(paused)); b.textContent = paused ? 'Play the animation' : 'Pause the animation'; sync(); });
+  try { const n = +(localStorage.getItem('fixture-visits') || 0) + 1; localStorage.setItem('fixture-visits', String(n)); document.getElementById('visits').textContent = 'Visits on this device: ' + n + '.'; } catch (e) { /* storage blocked: the page still works */ }
+  sync();
+  window.__done = true;
+})();
+</script>
+</body>
+</html>

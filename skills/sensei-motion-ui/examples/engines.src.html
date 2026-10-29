@@ -1,0 +1,67 @@
+<!doctype html>
+<!--
+  engines.src.html: the same staggered entrance written three ways (WAAPI, vanilla Motion, GSAP), each behind one
+  reduced-motion gate. HTML-Sensei's own code. It carries no library: build it with
+    node ../scripts/vendor-inline.mjs engines.src.html engines.html --project <folder with gsap and motion installed>
+  which inlines the pinned UMD files with their licence headers. ../scripts/motion-gate.js is loaded beside it (inline
+  it too for a single file).
+
+  verified: built with gsap 3.15.0 and motion 14.6.0 and run in Chrome 156 headless from strict file://
+            (test-motion-ui.mjs): every engine ends with the cards in place; under reduced motion every engine jumps to
+            the end state; unwrapped Motion still animates under reduced motion (the trap reproduces).
+  not verified: Firefox, Safari; other library versions.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Three engines, one gate</title>
+<style>
+body { margin: 0; background: #f6f5f1; color: #18171d; font: 1rem/1.5 system-ui, sans-serif; }
+main { max-inline-size: 46rem; margin-inline: auto; padding: 2rem 1rem; }
+.row { display: flex; gap: .75rem; align-items: center; margin-block: 1rem; flex-wrap: wrap; }
+.row h2 { inline-size: 7rem; font-size: 1rem; margin: 0; }
+.it { inline-size: 6rem; block-size: 3.5rem; border-radius: 10px; border: 1px solid #6d6a78; background: #fff; display: grid; place-items: center; }
+.btn { min-block-size: 2.75rem; padding-inline: 1rem; border: 1px solid #3c3a46; border-radius: 10px; background: #fff; font: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid #3d2fd0; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Three engines, one gate</h1>
+  <p><button class="btn" id="replay" type="button">Replay all three</button></p>
+  <div class="row" id="waapi"><h2>WAAPI</h2><div class="it">1</div><div class="it">2</div><div class="it">3</div></div>
+  <div class="row" id="motion"><h2>Motion</h2><div class="it">1</div><div class="it">2</div><div class="it">3</div></div>
+  <div class="row" id="gsap"><h2>GSAP</h2><div class="it">1</div><div class="it">2</div><div class="it">3</div></div>
+</main>
+<!-- sensei-vendor: gsap/dist/gsap.min.js -->
+<!-- sensei-vendor: motion/dist/motion.js -->
+<script src="../scripts/motion-gate.js"></script>
+<script>
+(() => {
+  const G = window.SenseiMotionGate;
+  const items = id => [...document.querySelectorAll('#' + id + ' .it')];
+  const runs = window.__runs = {};
+
+  function play() {
+    // WAAPI: the gate jumps to the last keyframe under reduced motion.
+    runs.waapi = items('waapi').map((el, i) => G.animate(el, [{ opacity: 0, transform: 'translateY(24px)' }, { opacity: 1, transform: 'none' }],
+      { duration: 600, delay: i * 80, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'both' }));
+    // Motion: its vanilla animate() ignores prefers-reduced-motion, so it goes through the gate.
+    const animate = G.motion(Motion.animate);
+    runs.motion = animate(items('motion'), { opacity: [0, 1], y: [24, 0] }, { type: 'spring', stiffness: 260, damping: 18, delay: Motion.stagger(0.08) });
+    // GSAP: gsap.matchMedia() written in the page (G.gsap() wraps the same call; the plugin's lint only sees this form).
+    if (runs.mm) runs.mm.revert();
+    runs.mm = gsap.matchMedia();
+    runs.mm.add({ full: '(prefers-reduced-motion: no-preference)', reduce: '(prefers-reduced-motion: reduce)' }, c => {
+      if (c.conditions.reduce) { gsap.set(items('gsap'), { autoAlpha: 1, y: 0 }); runs.gsap = null; return; }
+      runs.gsap = gsap.timeline().fromTo(items('gsap'), { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: .6, ease: 'power3.out', stagger: .08 });   // live page: keep immediateRender (true for fromTo) so the start state shows at once
+    });
+  }
+  document.getElementById('replay').addEventListener('click', play);
+  play();
+  window.__done = true;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!doctype html>
+<!--
+  svg-boil.html: boiling linework on plain SVG, no canvas and no library. A turbulence filter displaces the drawing
+  slightly; seek(t) steps the turbulence seed 12 times a second, so the line wobbles like frame-by-frame drawing
+  while staying a pure function of t. The same filter on a live page is one attribute change per boil step.
+  Under prefers-reduced-motion the interactive version should hold one seed (the boil is constant low-level motion,
+  tiring in long loops); a player sets that, the film itself has no clock.
+
+  verified: headless Chrome 155 on Windows 10 (test-handmade.mjs): two fresh in-order renders are identical; frames
+            inside one boil step identical, frames in different steps differ. NOT bit-exact under out-of-order seeks:
+            when a seed is revisited, Chrome's cached filter result differs in a few edge pixels (mean difference 0.004
+            levels, invisible; it fails a hash probe). For films that must pass a hash probe in any order, boil the
+            path points instead (scripts/handmade-kit.js inkLine, as in hop.html).
+  not verified: Safari and Firefox (feTurbulence output differs between engines, so the wobble pattern will differ;
+            within one engine it is repeatable); cost on a large full-screen drawing on a phone.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SVG boil</title>
+<style>html, body { margin: 0; background: #f3ebdc; overflow: hidden; } svg { display: block; }</style>
+</head>
+<body>
+<svg id="s" width="960" height="540" viewBox="0 0 960 540" role="img" aria-label="A hand-drawn teacup with steam rising; the lines wobble like a drawing.">
+  <defs>
+    <filter id="boil" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence id="turb" type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="1" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+  <g filter="url(#boil)" fill="none" stroke="#2b2233" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M330 270 h300 c0 110 -60 170 -150 170 s-150 -60 -150 -170 z" fill="#d97757" fill-opacity=".85"/>
+    <path d="M630 300 c70 0 70 90 -10 95"/>
+    <path d="M260 450 h440"/>
+    <path id="steam1" d="M420 230 c-20 -40 20 -60 0 -100"/>
+    <path id="steam2" d="M480 230 c-20 -40 20 -60 0 -110"/>
+    <path id="steam3" d="M540 230 c-20 -40 20 -60 0 -100"/>
+  </g>
+</svg>
+<script>
+(() => {
+  'use strict';
+  const turb = document.getElementById('turb'), steam = [1, 2, 3].map(i => document.getElementById('steam' + i));
+  function seek(t) {
+    turb.setAttribute('seed', String(1 + (Math.floor(t * 12 + 1e-9) % 97)));     // boil: a new drawing 12 times a second
+    steam.forEach((p, i) => {                                                  // steam rises on twos (24 fps)
+      const tp = Math.floor(t * 12 + 1e-9) / 12, k = ((tp * 0.5 + i * 0.33) % 1);
+      p.setAttribute('transform', `translate(0 ${(-60 * k).toFixed(1)})`);
+      p.setAttribute('stroke-opacity', (Math.sin(Math.PI * k)).toFixed(3));
+    });
+    return true;
+  }
+  window.__meta = { dur: 3, fps: 24, w: 960, h: 540 };
+  window.__seek = window.seek = seek;
+  window.__ready = Promise.resolve().then(() => { seek(0); window.READY = true; return true; });
+})();
+</script>
+</body>
+</html>

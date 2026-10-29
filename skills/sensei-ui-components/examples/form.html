@@ -1,0 +1,321 @@
+<!doctype html>
+<!--
+  form.html: a sign-up form for HTML-Sensei (sensei-ui-components, references/forms.md). HTML-Sensei's own code.
+  Native constraint validation with custom messages (novalidate, then checkValidity per field), aria-invalid and
+  aria-describedby wired to each error, focus on the first invalid field, a live error summary with links, a live
+  status line, Persian and English with RTL, Persian and Arabic-Indic digits accepted in the phone field, autocomplete
+  tokens, reduced motion, guarded storage, and an honest submit:
+    offline (no data-endpoint on the form, the default): the entry is saved on this device only and the page says
+      nothing was sent; the person can copy it, download it, or open it in their email app (mailto), with a note that
+      nothing is sent until they press Send there;
+    hosted (data-endpoint="https://..."): fetch POST with a JSON body (never a query string), a sending state, success
+      only on a 2xx answer, failure states that keep the entry, a 15 s timeout.
+  Fonts: the system stack (no font is embedded here; embed sensei-typography's Vazirmatn subset in a real Persian page).
+
+  verified: Chrome 156 headless (Windows 10, software GL), strict file://: scripts/test-form.mjs (both submit modes,
+            with the hosted endpoint answered by Playwright's request routing; RTL; digits; storage blocked; reduced
+            motion) and sensei-verify's sensei-gate.mjs with examples/form.steps.json.
+  not verified: a real hosted endpoint and CORS; Firefox, Safari, phones and their autofill; screen-reader speech;
+            whether a mail app opens from mailto on the target devices.
+-->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Course sign-up</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f7f5f0; --fg: #1c1b19; --muted: #55524c; --card: #ffffff; --line: #8a857c;
+    --accent: #0b5cad; --bad: #b3261e; --good: #1d6b35; --ring: #0b5cad; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #14151a; --fg: #ecebe8; --muted: #b9b6b0; --card: #22242a;
+    --line: #8b8f99; --accent: #8cc4ff; --bad: #ffb4ab; --good: #8fd6a2; --ring: #8cc4ff; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 1.0625rem/1.6 system-ui, "Segoe UI", Tahoma, sans-serif; }
+  header, main { max-width: 38rem; margin: 0 auto; padding: 1.25rem 1rem; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  h1 { font-size: 1.75rem; line-height: 1.25; margin: 0; }
+  p { margin: .25rem 0 1rem; }
+  .note { color: var(--muted); }
+  .field { margin-block: 0 1.25rem; }
+  label, .legend { display: block; font-weight: 600; margin-block-end: .25rem; }
+  .hint { display: block; color: var(--muted); font-size: .95rem; margin-block-end: .35rem; }
+  input, select, textarea { font: inherit; color: var(--fg); background: var(--card); inline-size: 100%;
+    min-block-size: 2.75rem; padding: .5rem .75rem; border: 1px solid var(--line); border-radius: .5rem; }
+  textarea { min-block-size: 6rem; resize: vertical; }
+  input[type=checkbox] { inline-size: 1.5rem; block-size: 1.5rem; min-block-size: 0; margin: 0; flex: none; accent-color: var(--accent); }
+  .check { display: flex; gap: .75rem; align-items: flex-start; }
+  .check label { font-weight: 400; margin: 0; }
+  [aria-invalid="true"] { border: 2px solid var(--bad); }
+  .err { color: var(--bad); font-weight: 600; margin: .35rem 0 0; }
+  .err[hidden] { display: none; }
+  button, .btn { font: inherit; min-block-size: 2.75rem; padding: .5rem 1.1rem; border-radius: .5rem; cursor: pointer;
+    border: 1px solid var(--line); background: var(--card); color: var(--fg); text-decoration: none; display: inline-flex; align-items: center; }
+  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+  button[aria-disabled="true"] { opacity: .7; cursor: progress; }
+  :focus-visible { outline: 3px solid var(--ring); outline-offset: 3px; }
+  #summary { border: 2px solid var(--bad); border-radius: .75rem; padding: .75rem 1rem; margin-block-end: 1.25rem; }
+  #summary:empty { display: none; }
+  #summary h2 { font-size: 1.15rem; margin: 0 0 .25rem; }
+  #summary ul { margin: 0; padding-inline-start: 1.25rem; }
+  #summary a { color: var(--bad); }
+  #status { min-block-size: 1.6em; font-weight: 600; }
+  #status[data-kind="good"] { color: var(--good); }
+  #status[data-kind="bad"] { color: var(--bad); }
+  .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-block: 1rem; }
+  .actions[hidden] { display: none; }
+  #copy-area { margin-block-start: .5rem; }
+  #copy-area[hidden] { display: none; }
+  /* A short nudge on invalid fields, only for people who have not asked for less motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    .nudge { animation: nudge .28s ease-out 1; }
+    @keyframes nudge { 30% { translate: 4px 0; } 60% { translate: -3px 0; } }
+  }
+  @media (forced-colors: active) { [aria-invalid="true"] { border: 3px solid Mark; } #summary { border-color: CanvasText; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 data-t="title">Sign up for a course</h1>
+  <button id="lang" type="button" lang="fa" data-t="switch">فارسی</button>
+</header>
+<main>
+  <p class="note" id="mode-note" data-t="offlineNote">This page works offline. Your entry stays on this device until you send it yourself.</p>
+  <div id="summary" role="alert" tabindex="-1"></div>
+  <form id="signup" method="post" novalidate data-endpoint="" data-mailto="school@example.com">
+    <div class="field">
+      <label for="f-name" data-t="name">Your name</label>
+      <input id="f-name" name="name" type="text" autocomplete="name" required minlength="2" dir="auto" aria-describedby="f-name-err">
+      <p class="err" id="f-name-err" hidden></p>
+    </div>
+    <div class="field">
+      <label for="f-email" data-t="email">Email</label>
+      <input id="f-email" name="email" type="email" autocomplete="email" required dir="ltr" inputmode="email" spellcheck="false" aria-describedby="f-email-err">
+      <p class="err" id="f-email-err" hidden></p>
+    </div>
+    <div class="field">
+      <label for="f-tel" data-t="tel">Phone (optional)</label>
+      <span class="hint" id="f-tel-hint" data-t="telHint">Digits only; Persian digits are fine.</span>
+      <input id="f-tel" name="tel" type="tel" autocomplete="tel" inputmode="tel" dir="ltr" pattern="[0-9]{7,15}" aria-describedby="f-tel-hint f-tel-err">
+      <p class="err" id="f-tel-err" hidden></p>
+    </div>
+    <div class="field">
+      <label for="f-course" data-t="course">Course</label>
+      <select id="f-course" name="course" required aria-describedby="f-course-err">
+        <option value="" data-t="pick">Choose a course</option>
+        <option value="english-beginners" data-t="c1">English for beginners</option>
+        <option value="persian-conversation" data-t="c2">Persian conversation</option>
+        <option value="ielts" data-t="c3">IELTS preparation</option>
+      </select>
+      <p class="err" id="f-course-err" hidden></p>
+    </div>
+    <div class="field">
+      <label for="f-msg" data-t="msg">Anything we should know? (optional)</label>
+      <textarea id="f-msg" name="message" dir="auto" maxlength="1000"></textarea>
+    </div>
+    <div class="field">
+      <div class="check">
+        <input id="f-ok" name="consent" type="checkbox" required aria-describedby="f-ok-err">
+        <label for="f-ok" data-t="consent">I agree that the school may contact me about this course.</label>
+      </div>
+      <p class="err" id="f-ok-err" hidden></p>
+    </div>
+    <button id="submit" class="primary" type="submit" data-t="submit">Sign up</button>
+  </form>
+  <p id="status" role="status" aria-live="polite"></p>
+  <div class="actions" id="actions" hidden>
+    <button id="copy" type="button" data-t="copy">Copy entry</button>
+    <button id="download" type="button" data-t="download">Download entry</button>
+    <a id="mail" class="btn" href="#" data-t="mail">Open in my email app</a>
+  </div>
+  <p class="note" id="mail-note" hidden data-t="mailNote">Your email app opens with the entry filled in. Nothing is sent until you press Send there.</p>
+  <textarea id="copy-area" readonly hidden aria-label="Your entry as text"></textarea>
+</main>
+<script>
+(() => {
+  const T = {
+    en: {
+      title: 'Sign up for a course', switch: 'فارسی', name: 'Your name', email: 'Email', tel: 'Phone (optional)',
+      telHint: 'Digits only; Persian digits are fine.', course: 'Course', pick: 'Choose a course',
+      c1: 'English for beginners', c2: 'Persian conversation', c3: 'IELTS preparation',
+      msg: 'Anything we should know? (optional)', consent: 'I agree that the school may contact me about this course.',
+      submit: 'Sign up', copy: 'Copy entry', download: 'Download entry', mail: 'Open in my email app',
+      offlineNote: 'This page works offline. Your entry stays on this device until you send it yourself.',
+      hostedNote: "When you press Sign up, your entry is sent to the school's server.",
+      mailNote: 'Your email app opens with the entry filled in. Nothing is sent until you press Send there.',
+      e: { name: { valueMissing: 'Enter your name.', tooShort: 'Your name needs at least 2 letters.' },
+        email: { valueMissing: 'Enter your email address.', typeMismatch: 'Enter an email address like name@example.com.' },
+        tel: { patternMismatch: 'Enter a phone number using digits only, 7 to 15 of them.' },
+        course: { valueMissing: 'Choose a course.' },
+        consent: { valueMissing: 'Tick the box to agree, or we cannot contact you.' } },
+      problems: n => n === 1 ? 'There is 1 problem with the form' : `There are ${n} problems with the form`,
+      saved: 'Saved on this device only. Nothing has been sent to the school yet. To send it, copy it, download it or open it in your email app.',
+      noStore: 'This browser does not allow saving here, so nothing was saved and nothing was sent. Copy or download your entry to keep it.',
+      sending: 'Sending your sign-up...', sent: "Sent: the school's server confirmed it received your sign-up.",
+      failed: r => `Not sent: ${r}. Your entry is still in the form; try again, or copy or download it.`,
+      rNet: 'no connection to the server', rTime: 'the server did not answer in 15 seconds', rHttp: s => `the server answered ${s}`,
+      copied: 'Copied to the clipboard.', copyFail: 'Could not copy automatically; the entry is shown below. Select it and copy it.',
+      downloaded: 'The entry was downloaded as a text file.', subject: 'Course sign-up',
+      labels: { name: 'Name', email: 'Email', tel: 'Phone', course: 'Course', message: 'Message' }
+    },
+    fa: {
+      title: 'ثبت‌نام در دوره', switch: 'English', name: 'نام شما', email: 'ایمیل', tel: 'تلفن (اختیاری)',
+      telHint: 'فقط رقم؛ رقم فارسی هم پذیرفته می‌شود.', course: 'دوره', pick: 'یک دوره انتخاب کنید',
+      c1: 'انگلیسی برای مبتدیان', c2: 'مکالمهٔ فارسی', c3: 'آمادگی آیلتس',
+      msg: 'نکته‌ای هست که باید بدانیم؟ (اختیاری)', consent: 'موافقم که آموزشگاه دربارهٔ این دوره با من تماس بگیرد.',
+      submit: 'ثبت‌نام', copy: 'کپی ورودی', download: 'دانلود ورودی', mail: 'باز کردن در برنامهٔ ایمیل',
+      offlineNote: 'این صفحه بدون اینترنت کار می‌کند. ورودی شما تا وقتی خودتان نفرستید، روی همین دستگاه می‌ماند.',
+      hostedNote: 'با زدن «ثبت‌نام»، ورودی شما به سرور آموزشگاه فرستاده می‌شود.',
+      mailNote: 'برنامهٔ ایمیل شما با ورودی پرشده باز می‌شود. تا در آن‌جا «ارسال» را نزنید، چیزی فرستاده نمی‌شود.',
+      e: { name: { valueMissing: 'نام خود را وارد کنید.', tooShort: 'نام باید دست‌کم ۲ حرف باشد.' },
+        email: { valueMissing: 'نشانی ایمیل خود را وارد کنید.', typeMismatch: 'نشانی ایمیل را مانند name@example.com وارد کنید.' },
+        tel: { patternMismatch: 'شماره تلفن را فقط با رقم وارد کنید، بین ۷ تا ۱۵ رقم.' },
+        course: { valueMissing: 'یک دوره انتخاب کنید.' },
+        consent: { valueMissing: 'برای موافقت کادر را علامت بزنید؛ وگرنه نمی‌توانیم با شما تماس بگیریم.' } },
+      problems: n => `فرم ${faDigits(n)} مشکل دارد`,
+      saved: 'فقط روی همین دستگاه ذخیره شد. هنوز چیزی برای آموزشگاه فرستاده نشده است. برای فرستادن، آن را کپی یا دانلود کنید، یا در برنامهٔ ایمیل خود باز کنید.',
+      noStore: 'این مرورگر اجازهٔ ذخیره نمی‌دهد؛ پس چیزی ذخیره یا فرستاده نشد. برای نگه‌داشتن، ورودی خود را کپی یا دانلود کنید.',
+      sending: 'در حال فرستادن...', sent: 'فرستاده شد: سرور آموزشگاه دریافت آن را تأیید کرد.',
+      failed: r => `فرستاده نشد: ${r}. ورودی شما هنوز در فرم است؛ دوباره امتحان کنید یا آن را کپی یا دانلود کنید.`,
+      rNet: 'اتصال به سرور برقرار نشد', rTime: 'سرور در ۱۵ ثانیه پاسخ نداد', rHttp: s => `سرور با کد ${faDigits(s)} پاسخ داد`,
+      copied: 'در کلیپ‌بورد کپی شد.', copyFail: 'کپی خودکار نشد؛ ورودی در پایین نمایش داده شده است. آن را انتخاب و کپی کنید.',
+      downloaded: 'ورودی به صورت فایل متنی دانلود شد.', subject: 'ثبت‌نام در دوره',
+      labels: { name: 'نام', email: 'ایمیل', tel: 'تلفن', course: 'دوره', message: 'پیام' }
+    }
+  };
+  function faDigits(n) { return String(n).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]); }
+  // Persian (U+06F0 to U+06F9) and Arabic-Indic (U+0660 to U+0669) digits to ASCII; spaces, hyphens, dots, brackets
+  // and a leading plus dropped, so "۰۹۱۲ ۳۴۵ ۶۷۸۹" validates as 09123456789.
+  const asciiDigits = s => s.replace(/[۰-۹]/g, c => String(c.charCodeAt(0) - 0x06F0)).replace(/[٠-٩]/g, c => String(c.charCodeAt(0) - 0x0660));
+  const normTel = s => asciiDigits(s).replace(/[\s().-]/g, '').replace(/^\+/, '');
+
+  const form = document.getElementById('signup');
+  // Read controls through form.elements, never as form.name: an input named "name" would be returned by form.name and
+  // hide HTMLFormElement.prototype.name (the trap this example keeps on purpose, see references/forms.md).
+  const F = form.elements;
+  const fields = ['name', 'email', 'tel', 'course', 'consent'];
+  const summary = document.getElementById('summary'), status = document.getElementById('status');
+  const actions = document.getElementById('actions'), mail = document.getElementById('mail');
+  const mailNote = document.getElementById('mail-note'), copyArea = document.getElementById('copy-area');
+  const submitBtn = document.getElementById('submit');
+  let lang = 'en', tried = false, sending = false, lastStatus = null;
+  const t = () => T[lang];
+  const hosted = () => !!form.dataset.endpoint;
+
+  function messageFor(key) {
+    const el = F[key], v = el.validity, m = t().e[key] || {};
+    for (const k of ['valueMissing', 'typeMismatch', 'tooShort', 'patternMismatch']) if (v[k]) return m[k] || m.valueMissing || el.validationMessage;
+    return el.validationMessage;
+  }
+  function showField(key) {
+    const el = F[key], err = document.getElementById(el.id + '-err');
+    if (key === 'tel' && el.value) el.value = normTel(el.value);
+    const bad = !el.checkValidity();
+    el.setAttribute('aria-invalid', bad ? 'true' : 'false');
+    err.textContent = bad ? messageFor(key) : '';
+    err.hidden = !bad;
+    return bad;
+  }
+  function validate() {
+    const bad = fields.filter(showField);
+    summary.textContent = '';
+    if (bad.length) {
+      const h = document.createElement('h2'); h.textContent = t().problems(bad.length);
+      const ul = document.createElement('ul');
+      for (const k of bad) {
+        const li = document.createElement('li'), a = document.createElement('a');
+        a.href = '#' + F[k].id; a.textContent = messageFor(k);
+        a.addEventListener('click', e => { e.preventDefault(); F[k].focus(); });
+        li.append(a); ul.append(li);
+      }
+      summary.append(h, ul);
+    }
+    return bad;
+  }
+  function nudge(el) { el.classList.remove('nudge'); void el.offsetWidth; el.classList.add('nudge'); }
+  function say(kind, text) { lastStatus = text ? { kind, text } : null; status.dataset.kind = kind || ''; status.textContent = ''; setTimeout(() => { status.textContent = typeof text === 'function' ? text() : text; }, 80); }
+
+  function entry() {
+    const L = t().labels, course = F.course.options[F.course.selectedIndex];
+    return { name: F.name.value.trim(), email: F.email.value.trim(), tel: F.tel.value, course: F.course.value,
+      courseLabel: course ? course.textContent : '', message: F.message.value.trim(), consent: F.consent.checked,
+      lang, at: new Date().toISOString(), text: [`${L.name}: ${F.name.value.trim()}`, `${L.email}: ${F.email.value.trim()}`,
+        F.tel.value ? `${L.tel}: ${F.tel.value}` : '', `${L.course}: ${course ? course.textContent : ''}`,
+        F.message.value.trim() ? `${L.message}: ${F.message.value.trim()}` : ''].filter(Boolean).join('\n') };
+  }
+  function offerActions(e) {
+    actions.hidden = false; mailNote.hidden = false;
+    mail.href = `mailto:${encodeURIComponent(form.dataset.mailto || '')}?subject=${encodeURIComponent(t().subject)}&body=${encodeURIComponent(e.text)}`;
+    copyArea.value = e.text;
+  }
+  function saveLocally(e) {
+    try {
+      const k = 'sensei-form-entries', list = JSON.parse(localStorage.getItem(k) || '[]');
+      list.push({ ...e, text: undefined }); localStorage.setItem(k, JSON.stringify(list));
+      return true;
+    } catch { return false; }
+  }
+  async function send(e) {
+    sending = true; form.setAttribute('aria-busy', 'true'); submitBtn.setAttribute('aria-disabled', 'true');
+    say('', () => t().sending);
+    const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 15000);
+    try {
+      // POST with a JSON body: the entry never goes into the URL, the history or a server log line.
+      const res = await fetch(form.dataset.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...e, text: undefined }), signal: ac.signal });
+      if (!res.ok) throw Object.assign(new Error('http'), { status: res.status });
+      say('good', () => t().sent); form.reset(); fields.forEach(k => F[k].removeAttribute('aria-invalid')); tried = false;
+      actions.hidden = true; mailNote.hidden = true;
+    } catch (err) {
+      const why = err.name === 'AbortError' ? 'rTime' : err.status ? 'rHttp' : 'rNet';
+      say('bad', () => t().failed(why === 'rHttp' ? t().rHttp(err.status) : t()[why]));
+      offerActions(e);
+    } finally {
+      clearTimeout(timer); sending = false; form.removeAttribute('aria-busy'); submitBtn.removeAttribute('aria-disabled');
+    }
+  }
+
+  form.addEventListener('submit', ev => {
+    ev.preventDefault();
+    if (sending) return;
+    tried = true;
+    const bad = validate();
+    if (bad.length) { say('', ''); const first = F[bad[0]]; first.focus(); bad.forEach(k => nudge(F[k])); return; }
+    const e = entry();
+    if (hosted()) { send(e); return; }
+    const kept = saveLocally(e);
+    say(kept ? 'good' : 'bad', () => kept ? t().saved : t().noStore);
+    offerActions(e);
+  });
+  for (const k of fields) F[k].addEventListener(k === 'course' || k === 'consent' ? 'change' : 'blur', () => { if (tried) showField(k); });
+
+  document.getElementById('copy').addEventListener('click', async () => {
+    const text = copyArea.value;
+    try { await navigator.clipboard.writeText(text); say('good', () => t().copied); }
+    catch { copyArea.hidden = false; copyArea.focus(); copyArea.select(); say('bad', () => t().copyFail); }
+  });
+  document.getElementById('download').addEventListener('click', () => {
+    const url = URL.createObjectURL(new Blob([copyArea.value + '\n'], { type: 'text/plain;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'course-sign-up.txt'; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    say('good', () => t().downloaded);
+  });
+
+  function setLang(next) {
+    lang = next;
+    document.documentElement.lang = lang; document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr';
+    for (const el of document.querySelectorAll('[data-t]')) {
+      const k = el.dataset.t === 'offlineNote' && hosted() ? 'hostedNote' : el.dataset.t;
+      if (typeof t()[k] === 'string') el.textContent = t()[k];
+    }
+    document.getElementById('lang').lang = lang === 'fa' ? 'en' : 'fa';
+    document.title = t().title;
+    if (tried) validate();
+    if (lastStatus) say(lastStatus.kind, lastStatus.text);
+    if (!actions.hidden) offerActions(entry());
+  }
+  document.getElementById('lang').addEventListener('click', () => setLang(lang === 'en' ? 'fa' : 'en'));
+  setLang('en');
+  window.__done = true;
+})();
+</script>
+</body>
+</html>

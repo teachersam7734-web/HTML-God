@@ -1,0 +1,32 @@
+# Local dependencies and temporary work
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+.sensei/
+.codex/
+.claude/
+.playwright/
+coverage/
+test-results/
+artifacts/
+.cache/
+.tmp/
+*.tmp
+# Render intermediates; final docs/assets media stays tracked
+frames/
+render-cache/
+
+# Local preview/build work and render intermediates
+.work/
+.tools/
+*.blend1
+*.mp4.chunks/
+docs/film/*.wav
+docs/film/hardest-beat.mp4
+
+__pycache__/
+*.py[cod]

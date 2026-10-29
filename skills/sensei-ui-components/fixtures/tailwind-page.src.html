@@ -1,0 +1,28 @@
+<!doctype html>
+<!--
+  tailwind-page.src.html: fixture for scripts/tailwind-one-file.mjs. HTML-Sensei's own markup. It still carries the
+  Tailwind CDN script on purpose, so the test proves the script removes it.
+  verified: compiled and gated by scripts/test-tailwind.mjs (Windows 10, Node 24, Tailwind 4.3.3, Chrome 156).
+  not verified: other browsers.
+-->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tailwind in one file</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style data-tailwind></style>
+</head>
+<body class="bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100 font-sans">
+  <main class="mx-auto max-w-2xl px-4 py-10">
+    <h1 class="text-3xl font-semibold tracking-tight text-balance">Compiled once, inlined, offline</h1>
+    <p class="mt-2 text-stone-700 dark:text-stone-300">Only the classes in this page are in the CSS.</p>
+    <div class="mt-6 rounded-2xl border border-stone-400 bg-white ps-8 pe-4 py-5 dark:bg-stone-900">
+      <p class="border-s-4 border-indigo-700 ps-3 rtl:text-right">Logical padding and borders follow the writing direction.</p>
+      <button type="button" class="mt-4 min-h-11 rounded-xl border border-indigo-700 bg-indigo-700 px-4 text-white hover:bg-indigo-800 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-indigo-900 motion-safe:transition-colors">Continue</button>
+      <p class="mt-3 text-[0.8125rem] text-stone-600 dark:text-stone-400">Arbitrary values compile too.</p>
+    </div>
+  </main>
+  <script>window.__done = true;</script>
+</body>
+</html>

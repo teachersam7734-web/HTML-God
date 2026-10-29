@@ -1,0 +1,25 @@
+<!doctype html>
+<!-- Fixture (QC finding 4): the four cases above done right: each animated selector reset under reduce, rAF and
+     WAAPI behind a matchMedia guard, View Transitions reset under reduce, a one-shot rAF that only coalesces a redraw. Should lint clean. -->
+<html lang="en"><head><meta charset="utf-8"><title>Reduced motion done</title><style>
+  .spinner { animation: spin 1s linear infinite; }
+  .list .item.new { animation: fade 1s both; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fade { from { opacity: 0; } }
+  ::view-transition-group(root) { animation-duration: 2s; }
+  @media (prefers-reduced-motion: reduce) {
+    .spinner { animation: none; }
+    .item { animation-duration: 1ms; }
+    ::view-transition-group(*) { animation: none; }
+  }
+</style></head><body><canvas id="c"></canvas><div class="spinner"></div><ul class="list"><li class="item new">a</li></ul><div id="g"></div>
+<script>
+  const RM = '(prefers-reduced-motion: reduce)';
+  const reduce = window.matchMedia(RM);
+  const ctx = document.getElementById('c').getContext('2d');
+  function frame(t) { ctx.clearRect(0, 0, 300, 150); ctx.fillRect(150 + Math.sin(t / 300) * 100, 60, 20, 20); if (!reduce.matches) requestAnimationFrame(frame); }
+  requestAnimationFrame(frame);
+  if (!reduce.matches) document.getElementById('g').animate([{ opacity: 1 }, { opacity: 0.5 }], { duration: 2000, iterations: Infinity });
+  let pend = false; addEventListener('scroll', () => { if (!pend) { pend = true; requestAnimationFrame(() => { pend = false; }); } });
+  if (document.startViewTransition) document.startViewTransition(() => {});
+</script></body></html>

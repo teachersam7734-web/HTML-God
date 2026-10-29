@@ -1,0 +1,5 @@
+{
+  "ink": { "bg": "#0b0a14", "surface": "#15132a", "text": "#f4f2ff", "text-soft": "#c9c4e6", "brand": "#8b7bff", "on-brand": "#0b0a14", "line": "#6a6694", "radius": "16px" },
+  "paper": { "bg": "#faf8f3", "surface": "#ffffff", "text": "#17142b", "text-soft": "#3b3758", "brand": "#4a35e8", "on-brand": "#ffffff", "line": "#767676", "radius": "6px" },
+  "pulse-bad": { "bg": "#0e0904", "surface": "#1b1208", "text": "#ffffff", "text-soft": "#8a7654", "brand": "#ffa31a", "on-brand": "#ffffff", "line": "#2a1c0b", "radius": "4px" }
+}

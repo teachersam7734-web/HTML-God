@@ -1,0 +1,15 @@
+<!doctype html>
+<!-- Fixture (QC finding 10): ten kinds of network reference the old no-CDN rule missed. Every one must be reported. -->
+<html lang="en"><head><meta charset="utf-8"><title>Network misses</title></head><body>
+<img alt="" src="a.png" srcset="a.png 1x, https://cdn.example.com/a@2x.png 2x">
+<video poster="https://cdn.example.com/poster.jpg" muted></video>
+<svg width="10" height="10"><image href="https://cdn.example.com/i.png" width="10" height="10"/></svg>
+<object data="https://cdn.example.com/x.svg" type="image/svg+xml"></object>
+<form action="https://forms.example.com/submit" method="post"><button>Send</button></form>
+<script type="module">
+  import "https://esm.sh/canvas-confetti@1.9.3";
+  const w = new Worker("https://cdn.example.com/worker.js");
+  navigator.sendBeacon("https://stats.example.com/hit", "x");
+  const ws = new WebSocket("wss://live.example.com/socket");
+  const s = document.createElement('script'); s.src = "https://cdn.example.com/lib.js"; document.head.append(s);
+</script></body></html>

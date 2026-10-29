@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Starter: replace me</title>
+<meta name="description" content="GOAT-HTML lite starter: minimal cinematic shell, offline, no network requests.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>">
+<!-- Fonts: no network request (offline by default). The stacks below use Space Grotesk and Inter
+     when installed, else system faces. To ship a named family, embed it as a base64 woff2
+     @font-face (references/media-embedding.md section 4, or html-sensei:sensei-typography). -->
+<style>
+:root{
+  --bg:#0a0812; --ink:#f2f0ff; --dim:#9c96b8; --accent:#7c6cff; --accent-2:#4fd1c5;
+  --line:rgba(255,255,255,.09);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --font-d:'Space Grotesk',ui-sans-serif,system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --font-b:'Inter',ui-sans-serif,system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-b);min-height:100vh;overflow-x:hidden}
+h1,h2{font-family:var(--font-d);letter-spacing:-.01em}
+::selection{background:color-mix(in srgb,var(--accent) 40%,transparent)}
+:focus-visible{outline:2px solid var(--accent-2);outline-offset:3px}
+
+/* ---- overlay stack (order: canvas < content < chrome < overlays < modal) ---- */
+.aurora{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(60% 50% at 15% 10%, color-mix(in srgb,var(--accent) 16%,transparent), transparent 60%),
+    radial-gradient(50% 45% at 85% 90%, color-mix(in srgb,var(--accent-2) 12%,transparent), transparent 60%);
+  animation:breathe 9s ease-in-out infinite}
+@keyframes breathe{0%,100%{opacity:.7}50%{opacity:1}}
+.vignette{position:fixed;inset:0;z-index:60;pointer-events:none;
+  background:radial-gradient(130% 100% at 50% 50%,transparent 42%,rgba(0,0,0,.5) 100%)}
+.grain{position:fixed;inset:-120px;z-index:61;pointer-events:none;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:grain 1s steps(4) infinite}
+@keyframes grain{0%{transform:translate(0,0)}25%{transform:translate(-30px,22px)}50%{transform:translate(20px,-26px)}75%{transform:translate(-14px,-16px)}100%{transform:translate(0,0)}}
+
+main{position:relative;z-index:10;max-width:980px;margin:0 auto;padding:14vh 24px 12vh}
+.kicker{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--dim)}
+h1{font-size:clamp(40px,7vw,84px);line-height:1.02;margin:14px 0 18px;
+  animation:riseIn .9s var(--ease) both}
+.sub{color:var(--dim);max-width:60ch;line-height:1.7;animation:riseIn .9s .12s var(--ease) both}
+@keyframes riseIn{from{opacity:0;transform:translateY(26px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+.btn{display:inline-flex;align-items:center;gap:10px;margin-top:30px;padding:14px 28px;
+  border:1px solid transparent; /* transparent border: keeps the button's shape in forced colours */
+  border-radius:14px;cursor:pointer;font:600 12px/1 var(--font-d);letter-spacing:1.5px;
+  text-transform:uppercase;color:#0a0812;background:linear-gradient(160deg,var(--accent),var(--accent-2));
+  box-shadow:0 12px 40px color-mix(in srgb,var(--accent) 35%,transparent);
+  transition:transform .35s var(--ease),box-shadow .35s var(--ease);animation:riseIn .9s .22s var(--ease) both}
+.btn:hover{transform:translateY(-3px) scale(1.02)}
+
+/* Reduced motion: loops stop, entrances become instant, the content is identical. */
+@media (prefers-reduced-motion: reduce){
+  .aurora,.grain{animation:none}
+  h1,.sub,.btn{animation:none}
+  .btn{transition:none}
+  .btn:hover{transform:none}
+}
+
+/*__MODULES__*/
+</style>
+</head>
+<body>
+<div class="aurora" aria-hidden="true"></div>
+<main>
+  <div class="kicker">GOAT-HTML lite</div>
+  <h1>Your title here</h1>
+  <p class="sub">Replace this shell's content. The overlay stack, tokens, easing and
+  load choreography are ready; build the engine next (workflow phase 4), then features.</p>
+  <button class="btn" type="button" onclick="SFX.chime()">Make a sound</button>
+</main>
+<div class="vignette" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+<script>
+'use strict';
+/*__ENGINE__*/
+/* Synthesised SFX: zero assets (references/interaction.md section 4). */
+const SFX=(()=>{let ctx;const ensure=()=>{if(!ctx)try{ctx=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}
+  if(ctx&&ctx.state==='suspended')ctx.resume();return ctx};
+  const tone=(f,t=0,dur=.12,type='sine',vol=.06,slide=0)=>{const c=ensure();if(!c)return;
+    const o=c.createOscillator(),g=c.createGain();o.type=type;
+    o.frequency.setValueAtTime(f,c.currentTime+t);
+    if(slide)o.frequency.exponentialRampToValueAtTime(f*slide,c.currentTime+t+dur);
+    g.gain.setValueAtTime(vol,c.currentTime+t);
+    g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+t+dur);
+    o.connect(g).connect(c.destination);o.start(c.currentTime+t);o.stop(c.currentTime+t+dur+.02)};
+  return{click:()=>tone(520,0,.06,'triangle',.05),chime:()=>{tone(660,0,.18);tone(880,.09,.22)},
+         error:()=>tone(180,0,.2,'square',.05)}})();
+/* A JS engine added here reads the same preference and draws a static frame instead of looping:
+   const reduced = matchMedia('(prefers-reduced-motion: reduce)'); */
+</script>
+</body>
+</html>

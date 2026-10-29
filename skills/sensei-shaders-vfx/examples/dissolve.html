@@ -1,0 +1,106 @@
+<!doctype html>
+<!--
+  dissolve.html: a noise-shaped dissolve whose pace is MEASURED, not guessed. fbm values cluster round 0.5, so a
+  threshold swept linearly from 0 to 1 does almost nothing, then everything at once (SENSEI-LOG). This page renders
+  the noise alone once, reads it back, sorts it into a quantile table, and maps progress p to the threshold at the
+  p-th quantile: the visible share then falls in step with p. The dissolve front glows. ?shape=0 shows the naive
+  linear threshold for comparison. window.__coverage(p) renders the dissolve at p and returns the share of the card
+  still visible (readPixels, alpha counted).
+  Cycle: 1 s whole, 2 s dissolve, 1 s gone, 2 s re-form. ?t=, window.__seek; reduced motion: the whole card, still.
+  verified: Windows 10, Chrome 155 + SwiftShader: gate3d.mjs passed; coverage at p = 0.25, 0.5, 0.75 for both modes
+            in the skill's Verification section.
+  not verified: frame rate on a target device; a dissolve over a real image (the card here is a gradient).
+  Original code of this project, written from the trap and fix recorded in SENSEI-LOG.
+-->
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Measured dissolve</title>
+<style>html,body{margin:0;height:100%;background:#0a0d14}canvas{display:block;width:100%;height:100%}</style>
+<canvas id="c" role="img" aria-label="A card that burns away and re-forms"></canvas>
+<script>
+(() => {
+const NOISE = `float hash(vec2 p){ p = fract(p * vec2(.1031, .1030)); p += dot(p, p.yx + 33.33); return fract((p.x + p.y) * p.x); }
+float vn(vec2 x){ vec2 i = floor(x), f = fract(x); f = f*f*(3. - 2.*f);
+  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
+float fbm(vec2 p){ float a = .5, s = 0.; for (int i = 0; i < 5; i++){ s += a * vn(p); p = p * 2.03 + 11.7; a *= .5; } return s / .96875; }`;
+const VS = `#version 300 es
+in vec2 a; out vec2 vUv; void main(){ vUv = a * .5 + .5; gl_Position = vec4(a, 0., 1.); }`;
+const FS_NOISE = `#version 300 es
+precision highp float; in vec2 vUv; out vec4 o;
+${NOISE}
+void main(){ o = vec4(vec3(fbm(vUv * 6.)), 1.); }`;
+const FS = `#version 300 es
+precision highp float; in vec2 vUv; out vec4 o; uniform float uThr; uniform vec2 uRes;
+${NOISE}
+void main(){
+  vec2 uv = vUv; float n = fbm(uv * 6.);
+  vec2 q = (uv - .5) * vec2(uRes.x / uRes.y, 1.);                       // card: a rounded rectangle in the middle
+  vec2 d = abs(q) - vec2(.42, .26); float card = 1. - smoothstep(0., .01, length(max(d, 0.)) - .04);
+  vec3 base = mix(vec3(.1, .3, .8), vec3(.9, .4, .6), uv.x) * (.75 + .25 * uv.y);
+  float alive = step(uThr, n) * card;                                   // n below the threshold has burned
+  float edge = (1. - smoothstep(0., .04, n - uThr)) * alive * step(.001, uThr);
+  vec3 col = mix(vec3(.003, .004, .008), base, alive) + vec3(1., .55, .15) * edge * 2.;   // linear values: .04 came out a washed grey after the gamma step
+  o = vec4(pow(col, vec3(1. / 2.2)), alive);                            // alpha = still visible (for the measurement)
+}`;
+const c = document.getElementById('c'), q = new URLSearchParams(location.search);
+const FIXED_T = q.has('t') ? +q.get('t') : null, SHAPE = q.get('shape') !== '0';
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const gl = c.getContext('webgl2', { antialias: false, alpha: false, preserveDrawingBuffer: false });
+if (!gl) { window.__done = true; return; }
+let progNoise, prog, U = {}, table = null;
+function compile(fs) {
+  const sh = (t, s) => { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
+  const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p;
+}
+function init() {
+  progNoise = compile(FS_NOISE); prog = compile(FS);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  U.uThr = gl.getUniformLocation(prog, 'uThr'); U.uRes = gl.getUniformLocation(prog, 'uRes');
+  // measure: render the noise alone into a 256 x 256 target, read it back, build a 101-entry quantile table
+  const S = 256, fb = gl.createFramebuffer(), tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, S, S, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  gl.viewport(0, 0, S, S); gl.useProgram(progNoise); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  const px = new Uint8Array(S * S * 4); gl.readPixels(0, 0, S, S, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb); gl.deleteTexture(tex);
+  const v = new Float32Array(S * S); for (let i = 0; i < v.length; i++) v[i] = px[i * 4] / 255; v.sort();
+  table = Array.from({ length: 101 }, (_, i) => v[Math.min(v.length - 1, Math.floor(i / 100 * (v.length - 1)))]);
+  window.__noiseRange = { p1: +table[1].toFixed(3), p50: +table[50].toFixed(3), p99: +table[99].toFixed(3) };
+  gl.useProgram(prog);
+}
+init();
+// progress 0..1 -> threshold. Shaped: the measured quantile, held just below the minimum at 0 so nothing burns early.
+function thr(p) {
+  if (p <= 0) return 0;
+  if (!SHAPE) return p;
+  const x = Math.min(100, p * 100), i = Math.floor(x), f = x - i; return table[i] + (table[Math.min(100, i + 1)] - table[i]) * f + 1e-3;
+}
+function size() { const d = Math.min(devicePixelRatio || 1, 2); c.width = Math.max(2, c.clientWidth * d | 0); c.height = Math.max(2, c.clientHeight * d | 0); }
+function render(p) { gl.viewport(0, 0, c.width, c.height); gl.uniform2f(U.uRes, c.width, c.height); gl.uniform1f(U.uThr, thr(p)); gl.drawArrays(gl.TRIANGLES, 0, 3); }
+const ease = x => x * x * (3 - 2 * x);
+function progressAt(t) { const k = t % 6; return k < 1 ? 0 : k < 3 ? ease((k - 1) / 2) : k < 4 ? 1 : 1 - ease((k - 4) / 2); }
+function frame(t) { render(reduce && FIXED_T === null ? 0 : progressAt(t)); }
+window.__seek = frame;
+window.__coverage = p => {                       // share of the card still visible at progress p, in an RGBA target
+  const w = 400, h = 225, fb = gl.createFramebuffer(), tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  const count = q => { gl.viewport(0, 0, w, h); gl.uniform2f(U.uRes, w, h); gl.uniform1f(U.uThr, thr(q)); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    const a = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, a); let n = 0; for (let i = 3; i < a.length; i += 4) if (a[i] > 127) n++; return n; };
+  const n0 = count(0), n1 = count(p);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb); gl.deleteTexture(tex); frame(FIXED_T ?? el);
+  return +(n1 / n0).toFixed(3);
+};
+let raf = 0, t0 = 0, el = 0, lost = false;
+const live = () => FIXED_T === null && !reduce && !document.hidden && !lost;
+function loop(now) { raf = requestAnimationFrame(loop); el = (now - t0) / 1000; frame(el); }
+function sync() { if (!live() && raf) { cancelAnimationFrame(raf); raf = 0; } if (!raf && !lost) frame(FIXED_T ?? el); if (live() && !raf) { t0 = performance.now() - el * 1000; raf = requestAnimationFrame(loop); } }
+document.addEventListener('visibilitychange', sync);
+c.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; sync(); });
+c.addEventListener('webglcontextrestored', () => { lost = false; init(); size(); sync(); });
+new ResizeObserver(() => { size(); if (!raf && !lost) frame(FIXED_T ?? el); }).observe(c); size(); sync();
+window.__done = true;
+})();
+</script>
+</html>

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FLIP reorder</title>
+<!-- flip.html: a wrapping row reordered with flip.js; "Move first to end" and "Shuffle" animate every tile from where it
+     was. Verified and not verified: see the header of flip.js. -->
+<style>
+body{margin:0;background:#0e0f13;color:#f2efe8;font:18px/1.5 system-ui,sans-serif}
+main{padding:24px}
+:focus-visible{outline:3px solid #6ee7b7;outline-offset:3px}
+button{font:inherit;padding:.5rem 1rem;border-radius:10px;border:2px solid #f2efe8;background:transparent;color:#f2efe8;cursor:pointer;margin:0 .5rem 1rem 0}
+#l{display:flex;flex-wrap:wrap;gap:10px;width:min(420px,100%);padding:0;margin:0;list-style:none}
+.i{width:100px;height:60px;background:#ffb454;color:#111;display:grid;place-items:center;font-weight:700;border-radius:8px}
+</style>
+<script src="flip.js"></script>
+</head>
+<body>
+<main>
+<h1>FLIP reorder</h1>
+<button id="move">Move first to end</button><button id="shuffle">Shuffle</button>
+<ul id="l"><li class="i" id="a">A</li><li class="i" id="b">B</li><li class="i" id="c">C</li><li class="i" id="d">D</li></ul>
+</main>
+<script>
+(function(){
+  var l = document.getElementById('l');
+  function tiles(){ return Array.prototype.slice.call(l.children); }
+  document.getElementById('move').addEventListener('click', function(){ flip(tiles(), function(){ l.appendChild(l.firstElementChild); }, { duration: 300 }); });
+  document.getElementById('shuffle').addEventListener('click', function(){
+    flip(tiles(), function(){ tiles().reverse().forEach(function(t){ l.appendChild(t); }); }, { duration: 400 });
+  });
+})();
+</script>
+</body>
+</html>

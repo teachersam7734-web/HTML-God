@@ -1,0 +1,10 @@
+<!doctype html>
+<!-- Fixture (QC finding 12): a CSS animation paused and driven from seek through getAnimations() and currentTime,
+     the fix lint-determinism itself recommends. Should lint clean. -->
+<html lang="en"><head><meta charset="utf-8"><title>Seek-driven CSS</title><style>
+  .dot { animation: slide 2s linear both; animation-play-state: paused; }
+  @keyframes slide { to { transform: translateX(400px); } }
+</style></head><body><div class="dot"></div>
+<script>
+  window.seek = t => { for (const a of document.getAnimations()) a.currentTime = t * 1000; };
+</script></body></html>

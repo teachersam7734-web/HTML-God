@@ -1,0 +1,194 @@
+<!doctype html>
+<!--
+  dashboard.html: a library-free offline dashboard. Data in an inert JSON block; headline numbers with a delta and a
+  sparkline; a sorted horizontal bar chart with direct labels that animates between periods from the old values (not
+  from zero); a line chart whose series differ by dash as well as colour, labelled at their ends; a "Show as table"
+  switch; light and dark palettes that pass scripts/palette-check.mjs; redraw on container resize with fewer ticks when
+  narrow; motion off under reduced motion.
+
+  verified: Windows 10, Node 24, playwright-core 1.62.1, installed Chrome 155, strict file:// (scripts/test-dash.mjs,
+            and sensei-verify's sensei-gate.mjs with examples/dashboard.steps.json).
+  not verified: Firefox and Safari; touch; screen-reader speech; the design judgement of a person.
+  HTML-Sensei's own code.
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regional sales dashboard</title>
+<style>
+:root{--bg:#ffffff;--panel:#f6f7f9;--fg:#1b1f24;--muted:#4f5864;--line:#c4cad3;--grid:#e3e6ea;
+  --s1:#0072B2;--s2:#D55E00;--s3:#009E73;--up:#116329;--down:#a32020;--focus:#0b5cad;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#12161c;--panel:#1a2029;--fg:#eef1f5;--muted:#aab3bf;--line:#4a5361;--grid:#2a313c;
+  --s1:#56B4E9;--s2:#E69F00;--s3:#009E73;--up:#6fdc8c;--down:#ff8f8f;--focus:#7cb7ff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,"Segoe UI",Roboto,sans-serif}
+main{max-width:72rem;margin:0 auto;padding:1rem}
+h1{font-size:1.6rem;margin:.2rem 0 .2rem}
+.sub{color:var(--muted);margin:0 0 1rem}
+.bar-row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin:0 0 1rem}
+button{font:inherit;min-height:44px;padding:.4rem .9rem;border-radius:.5rem;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+button[aria-pressed=true]{border-color:var(--focus);box-shadow:inset 0 0 0 1px var(--focus)}
+button:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,14rem),1fr));gap:1rem;margin-bottom:1rem}
+.kpi,.card{background:var(--panel);border:1px solid var(--line);border-radius:.8rem;padding:1rem}
+.kpi h2,.card h2{font-size:1rem;margin:0 0 .3rem;color:var(--muted);font-weight:600}
+.kpi .n{font-size:2.2rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.kpi .d{font-variant-numeric:tabular-nums}.kpi .d.up{color:var(--up)}.kpi .d.down{color:var(--down)}
+.kpi svg{display:block;width:100%;height:36px;margin-top:.4rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr));gap:1rem}
+.chart{width:100%;height:300px}
+.chart svg{display:block;width:100%;height:100%;overflow:visible}
+.chart text{fill:var(--fg);font:13px system-ui,sans-serif}.chart .axis text{fill:var(--muted)}
+.chart .grid line{stroke:var(--grid)}.chart .base{stroke:var(--fg)}
+.bars rect{transition:width .6s cubic-bezier(.2,.7,.2,1)}
+.find{margin:.3rem 0 .6rem;font-weight:600}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{border-bottom:1px solid var(--line);padding:.35rem .5rem;text-align:right}th:first-child,td:first-child{text-align:left}
+caption{text-align:left;font-weight:600;padding:.3rem 0}
+.src{color:var(--muted);font-size:.85rem;margin-top:1rem}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){.bars rect{transition:none}}
+@media (forced-colors:active){.chart .bars rect,.chart path.series{forced-color-adjust:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Regional sales</h1>
+  <p class="sub">Units sold per month, three regions. Example data.</p>
+  <div class="bar-row" role="group" aria-label="Period">
+    <button type="button" id="p-h1" aria-pressed="true">January to June</button>
+    <button type="button" id="p-h2" aria-pressed="false">July to December</button>
+    <button type="button" id="as-table" aria-pressed="false">Show as tables</button>
+  </div>
+  <section class="kpis" aria-label="Headline numbers" id="kpis"></section>
+  <div class="cards">
+    <section class="card" aria-labelledby="h-bars">
+      <h2 id="h-bars">Units by region, this period</h2>
+      <p class="find" id="find-bars"></p>
+      <div class="chart" id="bars"></div>
+      <table id="t-bars" hidden></table>
+    </section>
+    <section class="card" aria-labelledby="h-line">
+      <h2 id="h-line">Units by month</h2>
+      <p class="find" id="find-line"></p>
+      <div class="chart" id="line"></div>
+      <table id="t-line" hidden></table>
+    </section>
+  </div>
+  <p class="src">Source: generated example data, fixed seed. Bars start at zero; lines may not.</p>
+</main>
+<script type="application/json" id="data">
+{"months":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+ "series":["North","South","West"],
+ "units":{"North":[52,58,61,57,66,71,69,74,78,72,80,86],"South":[44,41,47,52,50,55,61,58,63,67,64,70],"West":[38,42,40,45,49,47,44,51,49,55,58,57]}}
+</script>
+<script>
+(function () {
+  "use strict";
+  var D = JSON.parse(document.getElementById("data").textContent);
+  var RM = matchMedia("(prefers-reduced-motion: reduce)");
+  var NS = "http://www.w3.org/2000/svg", COL = ["--s1", "--s2", "--s3"], DASH = ["", "6 4", "2 3"];
+  var period = 0, asTable = false;
+  var css = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
+  var sum = function (a) { return a.reduce(function (s, x) { return s + x; }, 0); };
+  var range = function () { return period === 0 ? [0, 6] : [6, 12]; };
+  function el(n, attrs, parent) { var e = document.createElementNS(NS, n); for (var k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+  function ticks(max, n) { var step = Math.pow(10, Math.floor(Math.log10(max / n))), err = max / n / step; step *= err >= 5 ? 10 : err >= 2 ? 5 : err >= 1.5 ? 2 : 1; var t = []; for (var v = 0; v <= max; v += step) t.push(v); return t; }
+
+  /* headline numbers: the period total per region, the change against the other half, a sparkline */
+  function kpis() {
+    var r = range(), o = period === 0 ? null : [0, 6], h = "";
+    D.series.forEach(function (s, i) {
+      var cur = sum(D.units[s].slice(r[0], r[1])), prev = o ? sum(D.units[s].slice(o[0], o[1])) : null;
+      var d = prev == null ? "" : (cur >= prev ? "Up " : "Down ") + Math.abs(Math.round((cur - prev) / prev * 100)) + " per cent on January to June";
+      h += '<article class="kpi"><h2>' + s + '</h2><div class="n">' + cur.toLocaleString("en-GB") + '</div>' +
+        '<div class="d ' + (prev == null ? "" : cur >= prev ? "up" : "down") + '">' + (d || "First half of the year") + "</div>" +
+        '<svg viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true" data-i="' + i + '"></svg></article>';
+    });
+    document.getElementById("kpis").innerHTML = h;
+    D.series.forEach(function (s, i) {
+      var v = D.units[s], mx = Math.max.apply(null, v), mn = Math.min.apply(null, v), svg = document.querySelector('#kpis svg[data-i="' + i + '"]');
+      el("path", { d: v.map(function (y, k) { return (k ? "L" : "M") + (k * 120 / 11).toFixed(1) + " " + (32 - (y - mn) / (mx - mn) * 28).toFixed(1); }).join(""), fill: "none", stroke: css(COL[i]), "stroke-width": 2, "vector-effect": "non-scaling-stroke" }, svg);
+    });
+  }
+
+  /* bars: sorted, direct labels, zero baseline, widths transition from the old values */
+  var barsSvg = null;
+  function bars() {
+    var host = document.getElementById("bars"), W = host.clientWidth, H = host.clientHeight, r = range();
+    var rows = D.series.map(function (s, i) { return { s: s, i: i, v: sum(D.units[s].slice(r[0], r[1])) }; }).sort(function (a, b) { return b.v - a.v; });
+    var max = Math.max.apply(null, rows.map(function (x) { return x.v; })) * 1.15, L = 64, R = 16, top = 8, bh = (H - 40) / rows.length;
+    var x = function (v) { return L + v / max * (W - L - R); };
+    if (!barsSvg || barsSvg._w !== W) {
+      host.innerHTML = ""; barsSvg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img" }, host); barsSvg._w = W;
+      var g = el("g", { class: "grid axis" }, barsSvg);
+      ticks(max, W < 420 ? 3 : 5).forEach(function (t) { el("line", { x1: x(t), x2: x(t), y1: top, y2: H - 28 }, g); var tx = el("text", { x: x(t), y: H - 10, "text-anchor": "middle" }, g); tx.textContent = t; });
+      el("g", { class: "bars" }, barsSvg); el("line", { class: "base", x1: L, x2: L, y1: top, y2: H - 28 }, barsSvg);
+    }
+    var gb = barsSvg.querySelector(".bars");
+    rows.forEach(function (row, k) {
+      var y = top + k * bh + bh * 0.18, h = bh * 0.64, rect = gb.querySelector('rect[data-s="' + row.s + '"]'), lab, val;
+      if (!rect) {
+        rect = el("rect", { "data-s": row.s, x: L, width: 0, rx: 3 }, gb);
+        lab = el("text", { "data-l": row.s, "text-anchor": "end" }, gb); val = el("text", { "data-v": row.s }, gb);
+        /* width as a CSS property, so the transition runs (an attribute change does not transition) */
+        var w0 = (x(row.v) - L) + "px";
+        if (!RM.matches && !bars.drawn) { rect.style.width = "0px"; requestAnimationFrame(function () { requestAnimationFrame(function () { rect.style.width = w0; }); }); }
+        else rect.style.width = w0;
+      } else { lab = gb.querySelector('[data-l="' + row.s + '"]'); val = gb.querySelector('[data-v="' + row.s + '"]'); rect.style.width = (x(row.v) - L) + "px"; }
+      rect.setAttribute("y", y); rect.setAttribute("height", h); rect.setAttribute("fill", css(COL[row.i]));
+      lab.setAttribute("x", L - 8); lab.setAttribute("y", y + h / 2 + 4); lab.textContent = row.s;
+      val.setAttribute("x", x(row.v) + 6); val.setAttribute("y", y + h / 2 + 4); val.textContent = row.v;
+    });
+    bars.drawn = true;   /* grow from zero once, on arrival; a redraw for a new width does not replay it */
+    barsSvg.setAttribute("aria-label", "Horizontal bars, units by region: " + rows.map(function (r) { return r.s + " " + r.v; }).join(", ") + ".");
+    document.getElementById("find-bars").textContent = rows[0].s + " leads with " + rows[0].v + " units, " + (rows[0].v - rows[rows.length - 1].v) + " more than " + rows[rows.length - 1].s + ".";
+    table("t-bars", "Units by region", ["Region", "Units"], rows.map(function (r) { return [r.s, r.v]; }));
+  }
+
+  /* line: whole year, dashes as a second channel, labels at the line ends, fewer ticks when narrow */
+  function line() {
+    var host = document.getElementById("line"), W = host.clientWidth, H = host.clientHeight, L = 36, R = 64, T = 10, B = 28;
+    host.innerHTML = "";
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img" }, host);
+    var all = [].concat.apply([], D.series.map(function (s) { return D.units[s]; })), lo = Math.floor(Math.min.apply(null, all) / 10) * 10, hi = Math.ceil(Math.max.apply(null, all) / 10) * 10;
+    var x = function (k) { return L + k * (W - L - R) / 11; }, y = function (v) { return T + (hi - v) / (hi - lo) * (H - T - B); };
+    var g = el("g", { class: "grid axis" }, svg), every = W < 420 ? 3 : 1;
+    for (var v = lo; v <= hi; v += (hi - lo) / 4) { el("line", { x1: L, x2: W - R, y1: y(v), y2: y(v) }, g); var t = el("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end" }, g); t.textContent = Math.round(v); }
+    D.months.forEach(function (m, k) { if (k % every) return; var t = el("text", { x: x(k), y: H - 8, "text-anchor": "middle" }, g); t.textContent = m; });
+    D.series.forEach(function (s, i) {
+      var p = el("path", { class: "series", d: D.units[s].map(function (u, k) { return (k ? "L" : "M") + x(k) + " " + y(u); }).join(""), fill: "none", stroke: css(COL[i]), "stroke-width": 2.5 }, svg);
+      if (DASH[i]) p.setAttribute("stroke-dasharray", DASH[i]);
+      var last = D.units[s][11], t = el("text", { x: W - R + 6, y: y(last) + 4 + (i - 1) * 2 }, svg); t.textContent = s;
+    });
+    svg.setAttribute("aria-label", "Line chart, units by month for " + D.series.join(", ") + ". " + D.series.map(function (s) { return s + " from " + D.units[s][0] + " in January to " + D.units[s][11] + " in December"; }).join("; ") + ".");
+    var best = D.series.slice().sort(function (a, b) { return (D.units[b][11] - D.units[b][0]) - (D.units[a][11] - D.units[a][0]); })[0];
+    document.getElementById("find-line").textContent = best + " grew most over the year, from " + D.units[best][0] + " to " + D.units[best][11] + " units a month.";
+    table("t-line", "Units by month", ["Month"].concat(D.series), D.months.map(function (m, k) { return [m].concat(D.series.map(function (s) { return D.units[s][k]; })); }));
+  }
+
+  function table(id, cap, head, rows) {
+    document.getElementById(id).innerHTML = "<caption>" + cap + "</caption><thead><tr>" + head.map(function (h) { return '<th scope="col">' + h + "</th>"; }).join("") + "</tr></thead><tbody>" +
+      rows.map(function (r) { return "<tr>" + r.map(function (c, k) { return k ? "<td>" + c + "</td>" : '<th scope="row">' + c + "</th>"; }).join("") + "</tr>"; }).join("") + "</tbody>";
+  }
+  function setTable(on) {
+    asTable = on; document.getElementById("as-table").setAttribute("aria-pressed", String(on));
+    ["bars", "line"].forEach(function (id) { document.getElementById(id).hidden = on; document.getElementById("t-" + id).hidden = !on; });
+  }
+  function setPeriod(p) {
+    period = p; document.getElementById("p-h1").setAttribute("aria-pressed", String(p === 0)); document.getElementById("p-h2").setAttribute("aria-pressed", String(p === 1));
+    kpis(); bars();
+  }
+  document.getElementById("p-h1").addEventListener("click", function () { setPeriod(0); });
+  document.getElementById("p-h2").addEventListener("click", function () { setPeriod(1); });
+  document.getElementById("as-table").addEventListener("click", function () { setTable(!asTable); });
+  /* redraw on the container, not the window: a sidebar or a grid change resizes charts without a window resize */
+  var raf = 0, ro = new ResizeObserver(function () { cancelAnimationFrame(raf); raf = requestAnimationFrame(function () { barsSvg = null; if (!asTable) { bars(); line(); } }); });
+  ro.observe(document.getElementById("bars")); ro.observe(document.getElementById("line"));
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () { barsSvg = null; kpis(); bars(); line(); });
+  kpis(); bars(); line();
+  window.__dash = { setPeriod: setPeriod, setTable: setTable, ready: true };
+})();
+</script>
+</body>
+</html>

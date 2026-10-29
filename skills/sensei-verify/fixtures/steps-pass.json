@@ -1,0 +1,5 @@
+[
+  { "do": "click", "sel": "#toggle" },
+  { "do": "eval", "expr": "document.getElementById('toggle').getAttribute('aria-pressed')", "expect": "true" },
+  { "do": "text", "has": "A page the gate should pass" }
+]

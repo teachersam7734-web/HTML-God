@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Visual styles lab</title>
+<!--
+  styles.html: eleven visual styles as token recipes. One component layer (.card, .btn, .field) reads custom
+  properties; each style is a block that only sets them. Same markup in every cell.
+  ?dir=rtl  mirrors the board and swaps in Persian copy.
+  ?bad=1    adds the three cells that fail on purpose (raw neumorphism, raw claymorphism field, dark mode done badly),
+            so scripts/style-contrast.mjs can prove it catches them.
+  System font stacks only (no font file), so it opens offline from file:// with nothing beside it; for an embedded
+  brand or Persian face see sensei-typography.
+  verified: Windows 10, Chrome 155 headless through playwright-core 1.64: scripts/style-contrast.mjs (every default
+            cell passes text 4.5, large heading 3, control boundary 3; the ?bad=1 cells fail as designed),
+            scripts/style-shots.mjs (normal, forced colours, RTL), sensei-verify's sensei-gate.mjs in strict file://.
+  not verified: Firefox and Safari (backdrop-filter, ::first-letter float in RTL), Windows High Contrast themes other
+            than the one Playwright emulates, real phones.
+  Origin: code-ui/styles.html in the HTML-Sensei build project's research notes (not shipped) (HTML-Sensei's own code, UI lane), adapted: lab font removed,
+          clay and editorial fields bordered, field text
+          coloured from the card (axe caught light ground text typed into the light skeuomorphic field), failing cells moved behind ?bad=1, a <main> landmark added.
+-->
+<style>
+*{box-sizing:border-box}
+body{margin:0;font:400 16px/1.6 "Segoe UI",Tahoma,system-ui,sans-serif;background:#d9dbe3;color:#16161f;padding:24px}
+h1{font-size:1.1rem;margin:0 0 16px;font-weight:700}
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:20px}
+.demo{position:relative;isolation:isolate;overflow:hidden;border-radius:18px;padding:22px;min-block-size:300px;display:flex;flex-direction:column;gap:12px;
+  background:var(--ground);color:var(--text);font-family:var(--font,inherit)}
+.demo>.tag{font:700 12px/1 ui-monospace,Consolas,Tahoma,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--tag,var(--text))}
+.card{background:var(--card-bg,transparent);color:var(--card-text,var(--text));border:var(--card-border,1px solid transparent);border-radius:var(--r,16px);padding:16px 18px;
+  box-shadow:var(--card-shadow,none);backdrop-filter:var(--card-filter,none);-webkit-backdrop-filter:var(--card-filter,none)}
+.card h2{margin:0 0 4px;font-size:1.25rem;font-weight:var(--head-w,700);font-family:var(--head-font,inherit);letter-spacing:var(--head-ls,0)}
+.card p{margin:0;font-size:.95rem;color:var(--card-soft,var(--card-text,var(--text)))}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{font:600 .95rem "Segoe UI",Tahoma,system-ui,sans-serif;font-family:var(--font,inherit);min-block-size:44px;padding-inline:20px;border-radius:var(--r-btn,12px);cursor:pointer;
+  background:var(--btn-bg);color:var(--btn-text);border:var(--btn-border,1px solid transparent);box-shadow:var(--btn-shadow,none)}
+.field{min-block-size:44px;padding-inline:14px;border-radius:var(--r-btn,12px);background:var(--field-bg);color:var(--field-text,var(--card-text,var(--text)));border:var(--field-border,1px solid transparent);box-shadow:var(--field-shadow,none);font:inherit;inline-size:100%}
+.field::placeholder{color:var(--placeholder,currentColor);opacity:1}
+.btn:focus-visible,.field:focus-visible{outline:3px solid var(--focus,#005fcc);outline-offset:3px}
+
+/* Every component keeps a real border, transparent by default: forced-colours mode removes box-shadow and paints
+   borders in a system colour, so shadow-only shapes stay visible. Never border:0 on a control. */
+
+/* 1 glassmorphism: the card is nearly transparent; legibility comes from blur plus a dark scrim in the fill */
+.glass{--ground:radial-gradient(circle at 20% 15%,#ff7ab8 0,transparent 45%),radial-gradient(circle at 85% 30%,#4cc9ff 0,transparent 50%),radial-gradient(circle at 50% 95%,#7b5cff 0,transparent 55%),#1b1537;--text:#fff;
+  --card-bg:rgba(20,16,50,.38);--card-border:1px solid rgba(255,255,255,.35);--card-filter:blur(18px) saturate(160%);--r:20px;--tag:#fff;
+  --card-shadow:0 8px 32px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.4);--btn-bg:#fff;--btn-text:#1b1537;--field-bg:rgba(20,16,50,.45);--field-border:1px solid rgba(255,255,255,.55);--placeholder:#fff;--focus:#fff}
+.glass>.tag{background:rgba(20,16,50,.6);padding:4px 6px;border-radius:4px;align-self:flex-start}
+@supports not (backdrop-filter:blur(1px)){.glass{--card-bg:rgba(27,21,55,.92)}}
+@media (prefers-reduced-transparency:reduce){.glass{--card-bg:#1b1537;--card-filter:none}}
+
+/* 2 neumorphism: raw (fails 1.4.11 by construction, shown only with ?bad=1) and fixed (3:1 border, dark primary) */
+.neu{--ground:#e0e5ec;--text:#2d3748;--card-bg:#e0e5ec;--r:24px;--card-shadow:9px 9px 16px #a3b1c6,-9px -9px 16px #ffffff;--btn-bg:#e0e5ec;--btn-text:#2d3748;--btn-shadow:6px 6px 12px #a3b1c6,-6px -6px 12px #fff;--r-btn:14px;
+  --field-bg:#e0e5ec;--field-shadow:inset 5px 5px 9px #a3b1c6,inset -5px -5px 9px #fff;--placeholder:#4a5568;--card-soft:#3b4658}
+.neu.fixed{--card-border:1.5px solid #5f6c80;--btn-border:1.5px solid #5f6c80;--field-border:1.5px solid #5f6c80;--btn-bg:#2d3748;--btn-text:#ffffff;--btn-shadow:4px 4px 8px #a3b1c6,-4px -4px 8px #fff}
+
+/* 3 claymorphism: big radius, three-layer shadow, pastel fills; the field needs a real border */
+.clay{--ground:linear-gradient(160deg,#ffe6f2,#e2e8ff);--text:#3a2a5c;--card-bg:#ffd1e6;--card-text:#4a1d44;--r:30px;--r-btn:22px;
+  --card-shadow:12px 14px 24px rgba(160,90,150,.35),inset -8px -10px 16px rgba(190,100,160,.35),inset 8px 10px 16px rgba(255,255,255,.85);
+  --btn-bg:#4f3fd6;--btn-text:#ffffff;--btn-shadow:8px 10px 18px rgba(60,45,170,.4),inset -5px -6px 10px rgba(30,20,120,.4),inset 3px 4px 6px rgba(255,255,255,.25);--field-bg:#fff;--field-shadow:inset 4px 4px 8px rgba(160,90,150,.25);--placeholder:#6b5a8a;
+  --field-border:1.5px solid #6f4f8f}
+.clay.raw{--field-border:1px solid transparent}
+
+/* 4 neo-brutalism: hard edges, hard shadow, press moves into the shadow */
+.brut{--ground:#fff4c2;--text:#000;--card-bg:#9ad8ff;--card-text:#000;--card-border:3px solid #000;--r:0px;--r-btn:0;--card-shadow:7px 7px 0 #000;--head-w:900;--head-ls:-.02em;
+  --btn-bg:#ff5d8f;--btn-text:#000;--btn-border:3px solid #000;--btn-shadow:5px 5px 0 #000;--field-bg:#fff;--field-border:3px solid #000;--placeholder:#444}
+.brut .btn{transition:translate .08s,box-shadow .08s}
+@media (hover:hover) and (pointer:fine){.brut .btn:hover{translate:2px 2px;box-shadow:3px 3px 0 #000}}
+.brut .btn:active{translate:5px 5px;box-shadow:0 0 0 #000}
+@media (prefers-reduced-motion:reduce){.brut .btn{transition:none}}
+
+/* 5 skeuomorphism: light from above, layered gradients, a lip, an inner shadow */
+.skeu{--ground:repeating-linear-gradient(90deg,#3b2a1c 0 3px,#43311f 3px 6px),#3b2a1c;--text:#f6e7d0;--card-bg:linear-gradient(#f4efe6,#d9d1c1);--card-text:#2b2418;--card-soft:#4a4030;--r:10px;--r-btn:8px;--font:Georgia,"Times New Roman",Tahoma,serif;
+  --card-shadow:0 1px 0 #fff inset,0 -2px 4px rgba(0,0,0,.25) inset,0 10px 18px rgba(0,0,0,.45),0 2px 0 #8d836f;--btn-bg:linear-gradient(#e9d28b,#b8923a);--btn-text:#2b1d05;
+  --btn-border:1px solid #7a5d1e;--btn-shadow:0 1px 0 #fff8 inset,0 3px 0 #7a5d1e,0 6px 8px rgba(0,0,0,.4);--field-bg:#f4efe6;--field-shadow:inset 0 2px 4px rgba(0,0,0,.35);--field-border:1px solid #8d836f;--placeholder:#5a5040}
+
+/* 6 Swiss: grid, one typeface, one red, flush start, hierarchy by weight and size only */
+.swiss{--ground:#fff;--text:#111;--card-bg:#fff;--r:0;--r-btn:0;--font:Arial,Helvetica,Tahoma,sans-serif;--head-w:800;--head-ls:-.03em;--btn-bg:#d10600;--btn-text:#fff;--field-bg:#f2f2f2;--field-border:1px solid #767676;--placeholder:#555}
+.swiss .card{border-block-start:6px solid #111;padding-inline:0}
+
+/* 7 editorial: serif display, hairlines, a drop cap only for Latin text, a measured line */
+.edit{--ground:#f7f3ea;--text:#1d1a14;--card-bg:transparent;--r:0;--r-btn:2px;--font:Georgia,"Times New Roman",Tahoma,serif;--head-font:Georgia,Tahoma,serif;--head-w:700;--head-ls:-.01em;--btn-bg:#1d1a14;--btn-text:#f7f3ea;--field-bg:transparent;--field-border:1px solid #6f6758;--placeholder:#5a5448}
+.edit .card{border-block:1px solid #1d1a14;border-inline:0;padding-inline:0}
+.edit .card p:lang(en)::first-letter{float:inline-start;font-size:3.2em;line-height:.8;padding-inline-end:.08em;font-weight:700}
+.edit .field{border-radius:0;border-block-end-width:2px;border-block-end-color:#1d1a14}
+
+/* 8 retro CRT: phosphor text, scanlines, vignette, a slow 3% flicker removed under reduced motion */
+.crt{--ground:#031a0b;--text:#7dff9b;--card-bg:rgba(0,40,12,.6);--card-border:1px solid #2bd55a;--r:6px;--r-btn:4px;
+  --font:ui-monospace,"Cascadia Mono",Consolas,Tahoma,monospace; /* a Persian-capable face AFTER the mono faces: mono alone broke Persian joins */
+  --btn-bg:#0a3d1a;--btn-text:#b8ffc9;--btn-border:1px solid #2bd55a;--field-bg:#021208;--field-border:1px solid #2bd55a;--placeholder:#58c879;--focus:#b8ffc9}
+.crt .card h2,.crt .card p,.crt .btn{text-shadow:0 0 6px rgba(125,255,155,.65)}
+.crt::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px),radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.55))}
+@keyframes crt-flick{0%,100%{opacity:1}50%{opacity:.97}}
+.crt .card{animation:crt-flick 4s steps(2) infinite} /* 0.25 Hz, 3%: far below three flashes a second */
+@media (prefers-reduced-motion:reduce){.crt .card{animation:none}}
+
+/* 9 Y2K chrome: pastel ground, hard-split chrome card, pill buttons */
+.y2k{--ground:linear-gradient(135deg,#c9f0ff,#f3d1ff 55%,#fff6b8);--text:#1a1040;--card-bg:linear-gradient(180deg,#ffffff,#cfd8ee 48%,#9fb0d8 52%,#e8eefc);--card-text:#120a35;--card-border:2px solid #fff;--r:18px;--r-btn:999px;--font:"Trebuchet MS",Verdana,Tahoma,sans-serif;
+  --card-shadow:0 0 0 1px #5b6aa8,0 6px 14px rgba(40,50,120,.35);--btn-bg:linear-gradient(#9af9ff,#2cc4ea 55%,#5fdcf5);--btn-text:#00263a;--btn-border:1px solid #006c8c;--btn-shadow:inset 0 2px 3px #fff,0 4px 8px rgba(0,80,120,.35);--field-bg:#fff;--field-border:2px solid #5b6aa8;--placeholder:#4c4c70}
+
+/* 10 dark mode done properly: elevation by lighter surface, desaturated accent, no pure black or white */
+.dark{--ground:#121316;--text:#e7e9ee;--card-bg:#1c1e23;--card-border:1px solid #2c2f37;--r:14px;--card-soft:#b4b9c4;--btn-bg:#8ab4ff;--btn-text:#0b1530;--field-bg:#23262d;--field-border:1px solid #6b7280;--placeholder:#9ba1ad;--card-shadow:0 1px 0 rgba(255,255,255,.04) inset;color-scheme:dark}
+/* 10b dark mode done badly (only with ?bad=1): grey text, saturated accent, pure black */
+.darkbad{--ground:#000;--text:#fff;--card-bg:#0a0a0a;--card-border:1px solid #1a1a1a;--r:14px;--card-soft:#6b6b6b;--btn-bg:#2f6bff;--btn-text:#9db8ff;--field-bg:#111;--field-border:1px solid #222;--placeholder:#555}
+
+/* 11 bento tile */
+.bento{--ground:#f2f1ee;--text:#171717;--card-bg:#fff;--card-border:1px solid #e3e1db;--r:22px;--card-soft:#4a4a48;--btn-bg:#171717;--btn-text:#fff;--field-bg:#fff;--field-border:1px solid #8a8780;--placeholder:#5a5955;--card-shadow:0 1px 2px rgba(0,0,0,.04),0 12px 28px -18px rgba(0,0,0,.25)}
+.bento .mini{display:grid;grid-template-columns:2fr 1fr;gap:10px}.bento .mini .card{padding:14px}.bento .big{font-size:2rem;font-weight:800;letter-spacing:-.03em}
+</style>
+</head>
+<body>
+<main>
+<h1>Visual styles lab: the same markup in every cell, only the tokens differ</h1>
+<div class="board" id="board"></div>
+</main>
+<template id="tpl"><section class="demo"><span class="tag"></span>
+  <div class="card"><h2>Reading speed</h2><p>Skim the first and last lines, then match each heading to its paragraph.</p></div>
+  <div class="row"><button class="btn" type="button">Start lesson</button><input class="field" placeholder="Your name" aria-label="Your name" style="flex:1;min-inline-size:120px"></div></section></template>
+<script>
+const S=[["glass","glass"],["neu fixed","neumorphism fixed"],["clay","claymorphism"],["brut","neo-brutalism"],["skeu","skeuomorphism"],["swiss","swiss"],["edit","editorial"],["crt","retro crt"],["y2k","y2k"],["dark","dark mode good"],["bento","bento tile"]];
+const q=new URLSearchParams(location.search);
+if(q.get("bad")==="1")S.push(["neu","neumorphism raw"],["clay raw","claymorphism raw field"],["darkbad","dark mode bad"]);
+const rtl=q.get("dir")==="rtl";if(rtl){document.documentElement.dir="rtl";document.documentElement.lang="fa"}
+const fa={h:"سرعت خواندن",p:"ابتدا و انتهای متن را مرور کنید، سپس هر عنوان را با بند خودش تطبیق دهید.",b:"شروع درس",f:"نام شما"};
+S.forEach(([c,l])=>{const n=document.getElementById("tpl").content.cloneNode(true);const d=n.querySelector(".demo");d.className="demo "+c;d.dataset.style=l;d.setAttribute("aria-label",l);d.querySelector(".tag").textContent=l;
+  if(rtl){d.querySelector("h2").textContent=fa.h;d.querySelector("p").textContent=fa.p;d.querySelector(".btn").textContent=fa.b;const f=d.querySelector(".field");f.placeholder=fa.f;f.setAttribute("aria-label",fa.f)}
+  if(c==="bento"){const c2=document.createElement("div");c2.className="mini";c2.innerHTML='<div class="card"><div class="big">38%</div><p>more sign-ups</p></div><div class="card"><div class="big">3x</div><p>faster</p></div>';d.insertBefore(c2,d.querySelector(".row"))}
+  document.getElementById("board").appendChild(n)});
+document.fonts.ready.then(()=>{window.__done=true});
+</script>
+</body>
+</html>

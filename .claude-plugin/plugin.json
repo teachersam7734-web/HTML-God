@@ -1,0 +1,50 @@
+{
+  "name": "html-god",
+  "displayName": "HTML God",
+  "description": "Say “Interview me” to open HTML God’s cinematic visual interview, then build extraordinary HTML with HTML-Sensei, GOAT HTML and HTML-Master: sites, decks, courses, games, dashboards, 3D and motion graphics.",
+  "keywords": [
+    "html",
+    "single-file",
+    "motion",
+    "three.js",
+    "webgl",
+    "shaders",
+    "holograms",
+    "blender",
+    "presentations",
+    "courses",
+    "accessibility",
+    "reduced-motion",
+    "html-router",
+    "interview",
+    "landing-page",
+    "website",
+    "dashboard",
+    "games"
+  ],
+  "userConfig": {
+    "blender_lab_mcp": {
+      "type": "boolean",
+      "title": "Blender Lab MCP (official)",
+      "description": "Start the official Blender Lab MCP server (GPL-3.0, run as a separate process): bundled API docs and headless tools. Needs uv and a clone of projects.blender.org/lab/blender_mcp. Off until you turn it on.",
+      "default": false
+    },
+    "blender_lab_mcp_dir": {
+      "type": "string",
+      "title": "Blender Lab MCP clone folder",
+      "description": "Folder of your clone of the Blender Lab MCP repository (the one that contains the mcp/ folder). Used only when the server above is on.",
+      "default": ""
+    },
+    "blender_live_mcp": {
+      "type": "boolean",
+      "title": "Blender live-scene MCP (community blender-mcp)",
+      "description": "Start the community blender-mcp server (MIT, uvx mcp-for-blender) for live scene control through its Blender add-on. Runs with telemetry off and safe mode on. Off until you turn it on.",
+      "default": false
+    }
+  },
+  "author": {
+    "name": "teachersam7734-web"
+  },
+  "homepage": "https://github.com/teachersam7734-web/HTML-God",
+  "repository": "https://github.com/teachersam7734-web/HTML-God"
+}

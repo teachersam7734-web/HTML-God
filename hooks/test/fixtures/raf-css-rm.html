@@ -1,0 +1,12 @@
+<!doctype html>
+<!-- Fixture (QC finding 4): an endless rAF loop and an infinite element.animate() with only an unrelated CSS reduce rule. Must warn. -->
+<html lang="en"><head><meta charset="utf-8"><title>rAF with CSS reduce only</title><style>
+  .card { transition: transform .2s; }
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+</style></head><body><canvas id="c"></canvas><div class="card" id="d">x</div>
+<script>
+  const ctx = document.getElementById('c').getContext('2d');
+  function frame(t) { ctx.clearRect(0, 0, 300, 150); ctx.fillRect(150 + Math.sin(t / 300) * 100, 60, 20, 20); requestAnimationFrame(frame); }
+  requestAnimationFrame(frame);
+  document.getElementById('d').animate([{ transform: 'none' }, { transform: 'rotate(1turn)' }], { duration: 2000, iterations: Infinity });
+</script></body></html>

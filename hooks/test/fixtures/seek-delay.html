@@ -1,0 +1,10 @@
+<!doctype html>
+<!-- Fixture (QC finding 12): a paused CSS animation driven by a negative animation-delay set from t. Should lint clean. -->
+<html lang="en"><head><meta charset="utf-8"><title>Seek by delay</title><style>
+  .bar { animation: grow 3s linear both paused; animation-play-state: paused; }
+  @keyframes grow { to { transform: scaleX(1); } }
+</style></head><body><div class="bar" id="b"></div>
+<script>
+  const bar = document.getElementById('b');
+  window.seek = t => { bar.style.animationDelay = `-${t}s`; };
+</script></body></html>

@@ -1,0 +1,58 @@
+<!doctype html>
+<!--
+  transpose-test.html: proves (or disproves) the world-space bug that the owner's two ektogamat hologram repos carry.
+  Two identical spheres with a fresnel-only material, one at the origin and one moved left and turned. The fixed
+  shader uses modelMatrix * vec4(position, 1.0); ?bug=1 swaps in vec4(position, 1.0) * modelMatrix, the transpose
+  multiply (translation dropped, rotation inverted, so the view vector is wrong). The page reads the pixel row through
+  each sphere's centre, finds the disc's own ends and compares the light in its two halves, and publishes
+  window.__asym = { origin, offset }: brighter half over dimmer half, 1.0 is symmetric. Use it as the test for any
+  hologram material you adapt.
+  The buggy line is assembled from two strings so this demonstration page does not trip the transpose lint rule.
+  Build: node ../../sensei-3d/scripts/build-vendor.mjs vendor entry-min.js
+  verified: Windows 10, Chrome 155 + SwiftShader, three 0.186.1: numbers and screenshots in the skill's Verification
+            section (fixed: both spheres symmetric; bug: the offset sphere lopsided, the origin sphere unchanged).
+  not verified: non-uniform scale (the fix there is the inverse transpose of the model matrix, not mat3(modelMatrix)).
+  Original code of this project (the bug was found by the 3D lane reading and running the MIT ektogamat material).
+-->
+<meta charset="utf-8"><title>Transpose multiply test</title>
+<style>html,body{margin:0;background:#000}canvas{display:block}pre{position:fixed;left:8px;top:8px;margin:0;color:#7f7;font:12px monospace}</style>
+<canvas id="c" width="800" height="400" role="img" aria-label="Two spheres with rim light, for a shader test"></canvas><pre id="o"></pre>
+<script src="vendor/t-min.js"></script>
+<script>
+(() => {
+const { WebGLRenderer, Scene, PerspectiveCamera, ShaderMaterial, Mesh, SphereGeometry } = T;
+const bug = new URLSearchParams(location.search).has('bug');
+const canvas = document.getElementById('c');
+const r = new WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true }); r.setPixelRatio(1); r.setSize(800, 400, false);
+const scene = new Scene(), cam = new PerspectiveCamera(35, 2, .1, 50); cam.position.set(0, 0, 9);
+const WORLD = bug ? 'vec4(position, 1.0) ' + '* modelMatrix' : 'modelMatrix * vec4(position, 1.0)';
+const NORMAL = bug ? 'vec4(normal, 0.0) ' + '* modelMatrix' : 'modelMatrix * vec4(normal, 0.0)';
+const mat = new ShaderMaterial({
+  vertexShader: `varying vec3 vW; varying vec3 vN;
+    void main(){ vec4 w = ${WORLD}; vW = w.xyz; vN = normalize((${NORMAL}).xyz);
+      gl_Position = projectionMatrix * viewMatrix * (modelMatrix * vec4(position, 1.0)); }`,   // placement is always right: only the shading inputs differ
+  fragmentShader: `varying vec3 vW; varying vec3 vN;
+    void main(){ vec3 V = normalize(cameraPosition - vW); float f = pow(1.0 - abs(dot(V, normalize(vN))), 2.0);
+      gl_FragColor = vec4(vec3(f), 1.0); }`
+});
+const geo = new SphereGeometry(1, 96, 64);
+const a = new Mesh(geo, mat); scene.add(a);
+const b = new Mesh(geo, mat); b.position.set(-2.6, 0.2, 0); b.rotation.set(0.4, 0.9, 0.2); scene.add(b);
+r.render(scene, cam);
+const gl = r.getContext();
+function asym(m) {
+  const c = m.position.clone().project(cam), y = Math.round((c.y + 1) * 200);
+  const row = new Uint8Array(800 * 4); gl.readPixels(0, y, 800, 1, gl.RGBA, gl.UNSIGNED_BYTE, row);
+  const cx = Math.round((c.x + 1) * 400); let lo = 9999, hi = -1;     // the disc centre is dark: find its lit ends
+  for (let x = Math.max(0, cx - 110); x <= Math.min(799, cx + 110); x++) if (row[x * 4] > 4) { lo = Math.min(lo, x); hi = Math.max(hi, x); }
+  const mid = (lo + hi) / 2; let L = 0, R = 0;
+  for (let x = lo; x <= hi; x++) { if (x < mid) L += row[x * 4]; else if (x > mid) R += row[x * 4]; }
+  return +(Math.max(L, R) / Math.max(1, Math.min(L, R))).toFixed(2);
+}
+window.__asym = { origin: asym(a), offset: asym(b), shader: bug ? 'vector * matrix (bug)' : 'matrix * vector (fixed)' };
+document.getElementById('o').textContent = JSON.stringify(window.__asym); console.log(JSON.stringify(window.__asym));
+canvas.addEventListener('webglcontextlost', e => e.preventDefault());
+canvas.addEventListener('webglcontextrestored', () => r.render(scene, cam));
+window.__done = true;
+})();
+</script>

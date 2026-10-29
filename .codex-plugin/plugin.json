@@ -1,0 +1,46 @@
+{
+  "name": "html-god",
+  "description": "Say “Interview me” to open HTML God’s cinematic visual interview, then build extraordinary HTML with HTML-Sensei, GOAT HTML and HTML-Master: sites, decks, courses, games, dashboards, 3D and motion graphics.",
+  "author": {
+    "name": "teachersam7734-web"
+  },
+  "homepage": "https://github.com/teachersam7734-web/HTML-God",
+  "repository": "https://github.com/teachersam7734-web/HTML-God",
+  "keywords": [
+    "html",
+    "design",
+    "motion-graphics",
+    "3d",
+    "interview",
+    "claude-code",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "hooks": "./.codex-plugin/hooks.json",
+  "mcpServers": "./.codex-plugin/mcp.json",
+  "interface": {
+    "displayName": "HTML God",
+    "shortDescription": "Turn a creative brief into an ambitious HTML experience.",
+    "longDescription": "A guided HTML Router interview, 28 shared skills and reusable verification scripts. Claude Code provides native agents and hooks; Codex uses the shared skills and manual gates. See the bundled compatibility guide.",
+    "developerName": "teachersam7734-web",
+    "category": "Creativity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/teachersam7734-web/HTML-God",
+    "brandColor": "#DEB567",
+    "composerIcon": "./docs/assets/html-god-icon.png",
+    "logo": "./docs/assets/html-god-hero.png",
+    "screenshots": [
+      "./docs/assets/interview-desktop.png",
+      "./docs/assets/interview-mobile.png"
+    ],
+    "defaultPrompt": [
+      "Interview me",
+      "Build a cinematic HTML experience with HTML-Sensei",
+      "Create a one-minute motion film"
+    ]
+  }
+}

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Directions: Tidewater Reading Club hero</title>
+<!--
+  directions.html: the comparison page of the explore step. Three structurally different directions for ONE section
+  (a hero), each built with the same real copy, each with its own prefixed CSS (.va- .vb- .vc-), a one-sentence
+  thesis, a trade-off line, a "grounded in" list, then three short analysis blocks and a decision row. The user picks
+  ("go with B", "C with A's proof row"); only then is the chosen direction built properly.
+  Copy this file per project: replace the brief, the copy and the three previews; keep the frame (.frame-*) and the
+  data-part / data-role marks, which scripts/check-directions.mjs reads.
+  Fictional product; no third-party copy, logo, image or colour. References in "grounded in" name the STRUCTURE
+  borrowed, never a brand to copy.
+  verified: Windows 10, Chrome 155 headless via playwright-core 1.64: scripts/check-directions.mjs passes (3
+            directions, every part present, prefixes clean, layouts pairwise distinct); sensei-verify's sensei-gate.mjs
+            in strict file:// (see SKILL.md section 8).
+  not verified: Firefox and Safari; phones (the gate's 375 px screenshot only).
+  HTML-Sensei's own code.
+-->
+<style>
+/* ---- the frame (shared by every comparison page) ---- */
+:root{--f-bg:#f4f3ef;--f-ink:#1b1b1f;--f-dim:#4d4d55;--f-line:#c9c7bf;--f-accent:#0b5cad}
+*{box-sizing:border-box}
+body{margin:0;background:var(--f-bg);color:var(--f-ink);font:16px/1.6 "Segoe UI",Tahoma,system-ui,sans-serif}
+.frame-head{padding:clamp(20px,4vw,48px) clamp(16px,4vw,48px) 8px;max-width:1200px;margin:auto}
+.frame-head h1{font-size:clamp(1.5rem,3vw,2.2rem);line-height:1.15;margin:0 0 8px}
+.frame-head p{margin:0 0 6px;max-width:75ch;color:var(--f-dim)}
+.frame-list{display:grid;gap:40px;padding:24px clamp(16px,4vw,48px) 48px;max-width:1200px;margin:auto}
+.direction{border-top:1px solid var(--f-line);padding-top:20px}
+.direction>h2{font-size:1.25rem;margin:0 0 4px}
+.meta{display:grid;gap:4px;margin:0 0 14px;max-width:85ch}
+.meta p{margin:0}.meta b{font-weight:700}
+.grounded{margin:0;padding-inline-start:1.2em;color:var(--f-dim);font-size:.92rem}
+.preview{border:1px solid var(--f-line);border-radius:10px;overflow:hidden;container-type:inline-size}
+.frame-analysis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:20px;max-width:1200px;margin:auto;padding:0 clamp(16px,4vw,48px) 24px}
+.frame-analysis section{border-top:3px solid var(--f-ink);padding-top:10px}
+.frame-analysis h2{font-size:1.05rem;margin:0 0 6px}
+.frame-decide{max-width:1200px;margin:auto;padding:0 clamp(16px,4vw,48px) 64px}
+.frame-decide table{border-collapse:collapse;width:100%}
+.frame-decide th,.frame-decide td{text-align:start;border-bottom:1px solid var(--f-line);padding:8px 10px 8px 0;vertical-align:top}
+a{color:var(--f-accent)}
+a:focus-visible,button:focus-visible{outline:3px solid var(--f-accent);outline-offset:3px}
+
+/* ---- direction A: editorial ledger (type carries everything; asymmetric two columns; proof as a ruled list) ---- */
+.va-hero{background:#fbf8f1;color:#191510;padding:clamp(24px,6cqi,72px);display:grid;grid-template-columns:1.6fr 1fr;gap:clamp(20px,5cqi,64px);align-items:end;font-family:Georgia,"Times New Roman",Tahoma,serif}
+.va-kicker{font:600 .85rem/1.2 "Segoe UI",Tahoma,sans-serif;color:#7a2e12;margin:0 0 14px}
+.va-title{font-size:clamp(2.2rem,7.5cqi,5.6rem);line-height:.95;letter-spacing:-.02em;margin:0;font-weight:700}
+.va-lede{font-size:1.1rem;margin:18px 0 22px;max-width:36ch}
+.va-cta{display:inline-flex;align-items:center;min-height:48px;padding:0 22px;background:#191510;color:#fbf8f1;border:1px solid #191510;text-decoration:none;font:600 1rem "Segoe UI",Tahoma,sans-serif}
+.va-proof{list-style:none;margin:0;padding:0;border-top:2px solid #191510}
+.va-proof li{border-bottom:1px solid #8c8577;padding:12px 0;display:flex;justify-content:space-between;gap:12px}
+.va-proof b{font-size:1.6rem;line-height:1}
+@container (max-width:640px){.va-hero{grid-template-columns:1fr}}
+
+/* ---- direction B: instrument panel (dark split screen; a live-looking dial is the one bold element; stats row) ---- */
+.vb-hero{background:#101418;color:#e8edf2;display:grid;grid-template-columns:1fr 1fr;min-height:420px}
+.vb-copy{padding:clamp(24px,5cqi,56px);display:flex;flex-direction:column;justify-content:center;gap:16px}
+.vb-kicker{margin:0;font:600 .8rem/1 ui-monospace,Consolas,Tahoma,monospace;color:#8fd3ff;letter-spacing:.06em}
+.vb-title{margin:0;font-size:clamp(1.9rem,4.6cqi,3.4rem);line-height:1.05;letter-spacing:-.01em}
+.vb-lede{margin:0;color:#b9c3cd;max-width:40ch}
+.vb-cta{align-self:flex-start;display:inline-flex;align-items:center;min-height:48px;padding:0 22px;border-radius:10px;background:#8fd3ff;color:#06202f;border:1px solid #8fd3ff;text-decoration:none;font-weight:700}
+.vb-media{position:relative;background:radial-gradient(circle at 50% 45%,#1d2a35,#0b0f13 70%);display:grid;place-items:center;border-inline-start:1px solid #26313b}
+.vb-dial{width:min(70%,300px);aspect-ratio:1;border-radius:50%;background:conic-gradient(#8fd3ff 0 68%,#26313b 68% 100%);display:grid;place-items:center;
+  -webkit-mask:radial-gradient(circle,transparent 58%,#000 59%);mask:radial-gradient(circle,transparent 58%,#000 59%)}
+.vb-read{position:absolute;text-align:center}
+.vb-read b{display:block;font:700 clamp(2rem,6cqi,3.4rem)/1 ui-monospace,Consolas,Tahoma,monospace}
+.vb-read span{color:#b9c3cd;font-size:.9rem}
+.vb-proof{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #26313b}
+.vb-proof p{margin:0;padding:16px clamp(16px,3cqi,32px);border-inline-end:1px solid #26313b}
+.vb-proof b{display:block;font-size:1.4rem;color:#fff}
+@container (max-width:640px){.vb-hero{grid-template-columns:1fr}.vb-media{min-height:260px;border-inline-start:0}.vb-proof{grid-template-columns:1fr}}
+
+/* ---- direction C: poster (centred, one saturated field, huge stacked words; proof as a quote under the CTA) ---- */
+.vc-hero{background:#ffcf3f;color:#1a1300;text-align:center;padding:clamp(32px,7cqi,88px) clamp(20px,5cqi,64px);display:grid;justify-items:center;gap:18px}
+.vc-kicker{margin:0;font-weight:700;background:#1a1300;color:#ffcf3f;padding:4px 12px;border-radius:999px;font-size:.9rem}
+.vc-title{margin:0;font:900 clamp(2.6rem,9cqi,6.4rem)/.9 "Arial Black","Segoe UI",Tahoma,sans-serif;letter-spacing:-.03em;text-transform:none;max-width:14ch}
+.vc-lede{margin:0;max-width:44ch;font-size:1.1rem}
+.vc-cta{display:inline-flex;align-items:center;min-height:52px;padding:0 28px;border-radius:999px;background:#1a1300;color:#fff;border:2px solid #1a1300;text-decoration:none;font-weight:800}
+.vc-proof{margin:6px 0 0;max-width:46ch;font-style:italic;border-top:2px solid #1a1300;padding-top:14px}
+</style>
+</head>
+<body>
+<header class="frame-head">
+  <h1>Hero directions for Tidewater Reading Club</h1>
+  <p><b>Brief:</b> an offline reading course for adults who stalled on long books; one action (start the free first week); proof is real member numbers. Same copy in every direction.</p>
+  <p><b>Design read:</b> a reading course for busy adults, with a calm but confident language, leaning toward warm paper or deep ink / one serif or one grotesque / lively motion. Dials: variance 7, motion 6, density 4.</p>
+</header>
+<main>
+<div class="frame-list">
+
+<article class="direction" data-direction="A" data-prefix="va-">
+  <h2>A. Editorial ledger</h2>
+  <div class="meta">
+    <p data-part="thesis"><b>Thesis:</b> the course sells reading, so the hero reads like a well-set page: type is the only image and proof sits in a ruled ledger.</p>
+    <p data-part="tradeoff"><b>Optimises</b> trust and calm for adults who distrust gimmicks; <b>gives up</b> visual drama and a memorable picture.</p>
+    <ul class="grounded" data-part="grounded"><li>Structure from long-form magazine openers: asymmetric headline column, a side column of figures.</li><li>Style recipe: the editorial cell of styles.html (serif display, hairlines).</li></ul>
+  </div>
+  <div class="preview">
+    <section class="va-hero" aria-label="Direction A preview">
+      <div>
+        <p class="va-kicker">Tidewater Reading Club</p>
+        <h3 class="va-title" data-role="headline">Finish the books you started.</h3>
+        <p class="va-lede" data-role="lede">Twenty minutes a day, one chapter at a time, with a reading partner who notices when you stop.</p>
+        <a class="va-cta" href="#start-a" data-role="cta">Start the free first week</a>
+      </div>
+      <ul class="va-proof" data-role="proof">
+        <li><span>Members who finished a book in month one</span><b>71%</b></li>
+        <li><span>Average pages a week, week eight</span><b>186</b></li>
+        <li><span>Books finished by members last year</span><b>9,420</b></li>
+      </ul>
+    </section>
+  </div>
+</article>
+
+<article class="direction" data-direction="B" data-prefix="vb-">
+  <h2>B. Instrument panel</h2>
+  <div class="meta">
+    <p data-part="thesis"><b>Thesis:</b> progress is the product, so the hero is a dashboard you already want to fill: a reading dial is the one bold element and the proof is a stats bar.</p>
+    <p data-part="tradeoff"><b>Optimises</b> motivation and a clear picture of the outcome; <b>gives up</b> warmth, and risks looking like a fitness app.</p>
+    <ul class="grounded" data-part="grounded"><li>Structure from product heroes with a split screen: copy left, the product's own instrument right, a metrics strip below.</li><li>Style recipe: the dark mode good cell of styles.html (lighter-tint elevation, desaturated accent).</li></ul>
+  </div>
+  <div class="preview">
+    <section class="vb-hero" aria-label="Direction B preview">
+      <div class="vb-copy">
+        <p class="vb-kicker">TIDEWATER READING CLUB</p>
+        <h3 class="vb-title" data-role="headline">Finish the books you started.</h3>
+        <p class="vb-lede" data-role="lede">Twenty minutes a day, one chapter at a time, with a reading partner who notices when you stop.</p>
+        <a class="vb-cta" href="#start-b" data-role="cta">Start the free first week</a>
+      </div>
+      <div class="vb-media" data-role="media" role="img" aria-label="Reading dial at 68 per cent of this week's goal">
+        <div class="vb-dial"></div>
+        <div class="vb-read" aria-hidden="true"><b>68%</b><span>of this week's pages</span></div>
+      </div>
+      <div class="vb-proof" data-role="proof">
+        <p><b>71%</b>finished a book in month one</p>
+        <p><b>186</b>pages a week by week eight</p>
+        <p><b>9,420</b>books finished last year</p>
+      </div>
+    </section>
+  </div>
+</article>
+
+<article class="direction" data-direction="C" data-prefix="vc-">
+  <h2>C. Poster</h2>
+  <div class="meta">
+    <p data-part="thesis"><b>Thesis:</b> stalled readers need a push, not a brochure: one saturated field, a centred shout and a single member's words as the proof.</p>
+    <p data-part="tradeoff"><b>Optimises</b> energy and memorability on a phone; <b>gives up</b> the hard numbers above the fold and some seriousness.</p>
+    <ul class="grounded" data-part="grounded"><li>Structure from campaign posters: centred stack, oversized words, one quote under the action.</li><li>Style recipe: the neo-brutalism cell of styles.html, softened (pill shapes, no hard shadow).</li></ul>
+  </div>
+  <div class="preview">
+    <section class="vc-hero" aria-label="Direction C preview">
+      <p class="vc-kicker">Tidewater Reading Club</p>
+      <h3 class="vc-title" data-role="headline">Finish the books you started.</h3>
+      <p class="vc-lede" data-role="lede">Twenty minutes a day, one chapter at a time, with a reading partner who notices when you stop.</p>
+      <a class="vc-cta" href="#start-c" data-role="cta">Start the free first week</a>
+      <p class="vc-proof" data-role="proof">"I had nine books with a bookmark in chapter three. I have finished six of them." A member, week twelve</p>
+    </section>
+  </div>
+</article>
+</div>
+
+<div class="frame-analysis">
+  <section><h2>Hierarchy</h2><p>A leads with the sentence; B with the sentence and the dial at equal weight; C with the sentence alone. B is the only one where the eye may land on the picture first.</p></section>
+  <section><h2>Proof</h2><p>A and B show the three numbers above the fold; C trades them for one human quote and leaves the numbers to the next section.</p></section>
+  <section><h2>Risk</h2><p>A can feel quiet next to competitors; B can feel like a tracker app; C can feel loud for a course about patience.</p></section>
+</div>
+<section class="frame-decide" aria-labelledby="decide">
+  <h2 id="decide">Decide</h2>
+  <table>
+    <thead><tr><th scope="col">If you want</th><th scope="col">Pick</th></tr></thead>
+    <tbody>
+      <tr><td>Trust and calm, for readers who already love books</td><td>A</td></tr>
+      <tr><td>Motivation through visible progress</td><td>B</td></tr>
+      <tr><td>Energy and a phone-first push</td><td>C</td></tr>
+      <tr><td>B's dial with A's typography</td><td>B, set in A's serif on a warm dark ground</td></tr>
+    </tbody>
+  </table>
+</section>
+</main>
+<script>window.__done=true</script>
+</body>
+</html>

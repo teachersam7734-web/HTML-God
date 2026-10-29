@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- template.html: the course shape in miniature (Ultra Bookworm's order). Build: node ../../scripts/build-single.mjs build.json
+     Order, top to bottom: charset first; fonts and CSS in <head>; every element the app needs; small data the app
+     needs at once (JSON, parsed on boot); the app script, which calls boot() directly; then the big on-demand payloads
+     as inert text, read only when asked for. Original HTML-Sensei code.
+     verified: test-build-single.mjs (builds, passes the strict file:// gate, boots before DOMContentLoaded).
+     not verified: phones; Firefox and Safari. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Course shape: a single-file example</title>
+<style>/*__FONTS__*/</style>
+<style>/*__CSS__*/</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the lessons</a>
+<header><h1>A course in one file</h1><p id="status" role="status">Starting.</p></header>
+<main id="main" tabindex="-1">
+  <ol id="lessons" class="lessons"></ol>
+  <section class="film" aria-labelledby="film-h">
+    <h2 id="film-h">Lesson film</h2>
+    <button id="play" type="button">Load and play the film</button>
+    <video id="video" controls playsinline hidden></video>
+  </section>
+</main>
+<script type="application/json" id="lessons-data">/*__LESSONS__*/</script>
+<script>/*__APP__*/</script>
+<script type="application/x-sensei-film" id="film" data-mime="video/webm">/*__FILM__*/</script>
+</body>
+</html>

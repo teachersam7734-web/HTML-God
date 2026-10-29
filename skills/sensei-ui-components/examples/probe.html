@@ -1,0 +1,78 @@
+<!doctype html>
+<!--
+  probe.html: which native component features does THIS browser have? Open it in each target browser (double-click
+  works); it prints a table and exposes window.__probe for scripts (scripts/probe-features.mjs). HTML-Sensei's own
+  code, extended from the UI research lane's native.html probe.
+
+  verified: Chrome 156 headless, strict file:// (every row reported yes, and the popover, dialog and invoker-command
+            rows were exercised, not only feature-detected).
+  not verified: Firefox, Safari, phones: open the page there and read the table; that is the point of it.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Native feature probe</title>
+<style>
+body { margin: 0; padding: 1.5rem 1rem; font: 1rem/1.5 system-ui, sans-serif; background: #fff; color: #1b1c20; }
+h1 { font-size: 1.4rem; margin: 0 0 1rem; }
+table { border-collapse: collapse; inline-size: min(44rem, 100%); }
+th, td { text-align: start; padding: .4rem .6rem; border-block-end: 1px solid #c8c8cc; }
+td.yes { color: #0d6b2c; font-weight: 600; }
+td.no { color: #a3141c; font-weight: 600; }
+.hide { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Native feature probe</h1>
+  <p id="ua"></p>
+  <table><thead><tr><th scope="col">Feature</th><th scope="col">Here</th><th scope="col">Used for</th></tr></thead><tbody id="rows"></tbody></table>
+</main>
+<div class="hide" aria-hidden="true">
+  <button id="pb" popovertarget="p1" tabindex="-1">m</button><div id="p1" popover>menu</div>
+  <button id="cb" commandfor="d1" command="show-modal" tabindex="-1">d</button><dialog id="d1">x</dialog>
+</div>
+<script>
+(() => {
+  const s = (p, v) => { try { return CSS.supports(p, v); } catch { return false; } };
+  const sel = q => { try { return CSS.supports('selector(' + q + ')'); } catch { return false; } };
+  const hint = (() => { const t = document.createElement('div'); t.popover = 'hint'; return t.popover === 'hint'; })();
+  const rows = [
+    ['popover attribute', 'popover' in HTMLElement.prototype, 'menus, toasts, pickers (light dismiss, Escape, top layer)'],
+    ['popover="hint"', hint, 'tooltips that do not close other popovers'],
+    ['interestfor (hover and focus invokers)', 'interestForElement' in HTMLButtonElement.prototype, 'tooltips and previews without script'],
+    ['command and commandfor', 'command' in HTMLButtonElement.prototype, 'open a dialog or popover without script'],
+    ['dialog showModal()', typeof HTMLDialogElement.prototype.showModal === 'function', 'modal dialogs (focus trap, inert page, Escape)'],
+    ['dialog closedby', 'closedBy' in HTMLDialogElement.prototype, 'light-dismiss dialogs'],
+    ['anchor positioning', s('anchor-name', '--a') && s('position-area', 'top'), 'placing popovers next to their button'],
+    ['position-try-fallbacks', s('position-try-fallbacks', 'flip-block'), 'flipping when there is no room'],
+    ['@starting-style', sel(':popover-open'), 'entry transitions from display: none'],
+    ['interpolate-size', s('interpolate-size', 'allow-keywords'), 'animating to height: auto'],
+    ['::details-content', sel('::details-content'), 'animating details open and closed'],
+    ['details name (exclusive accordion)', 'name' in HTMLDetailsElement.prototype, 'one-open accordions'],
+    ['appearance: base-select', s('appearance', 'base-select'), 'fully styleable select'],
+    [':has()', sel(':has(a)'), 'parent state styling'],
+    ['container queries', s('container-type', 'inline-size'), 'components that fit their slot'],
+    ['scroll-driven animation', s('animation-timeline', 'view()'), 'reveals (see sensei-scroll)'],
+    ['View Transitions', !!document.startViewTransition, 'state morphs (see sensei-transitions)'],
+    ['CSS nesting', sel('&'), 'authoring'],
+    ['color-mix()', s('color', 'color-mix(in srgb, red, blue)'), 'state tints'],
+    ['light-dark()', s('color', 'light-dark(red, blue)'), 'themes (see sensei-tokens-theming)'],
+    ['text-wrap: balance', s('text-wrap', 'balance'), 'headings'],
+    ['field-sizing: content', s('field-sizing', 'content'), 'auto-growing inputs'],
+    ['CSS custom highlights', typeof CSS.highlights !== 'undefined', 'search hits without wrapping spans'],
+    ['::scroll-marker', sel('::scroll-marker'), 'carousel dots without script'],
+  ];
+  // Exercise, not only detect, the three behaviours a page relies on most.
+  try { document.getElementById('pb').click(); rows.push(['popover actually opens', document.getElementById('p1').matches(':popover-open'), 'behaviour check']); document.getElementById('p1').hidePopover(); } catch { rows.push(['popover actually opens', false, 'behaviour check']); }
+  try { const d = document.getElementById('d1'); d.showModal(); rows.push(['modal dialog actually opens', d.open && d.matches(':modal'), 'behaviour check']); d.close(); } catch { rows.push(['modal dialog actually opens', false, 'behaviour check']); }
+  try { document.getElementById('cb').click(); const d = document.getElementById('d1'); rows.push(['command="show-modal" actually opens', d.open, 'behaviour check']); d.close(); } catch { rows.push(['command="show-modal" actually opens', false, 'behaviour check']); }
+  document.getElementById('ua').textContent = navigator.userAgent;
+  document.getElementById('rows').innerHTML = rows.map(([n, ok, u]) => `<tr><th scope="row">${n}</th><td class="${ok ? 'yes' : 'no'}">${ok ? 'yes' : 'no'}</td><td>${u}</td></tr>`).join('');
+  window.__probe = Object.fromEntries(rows.map(([n, ok]) => [n, !!ok]));
+  window.__done = true;
+})();
+</script>
+</body>
+</html>

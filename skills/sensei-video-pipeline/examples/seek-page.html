@@ -1,0 +1,88 @@
+<!doctype html>
+<!--
+  seek-page.html: the skeleton of a film page that any HTML-Sensei renderer can seek. DOM, SVG and canvas together,
+  every value computed from t: a container that retargets three times on summed springs (position and velocity stay
+  continuous), ballistic sparks drawn analytically on a canvas (no simulation state), a counter stepped per frame,
+  and a fast whip (use it to judge shutter blur).
+
+  Contract (read by scripts/render.mjs and scripts/cdp.mjs):
+    window.__seek(t) (or seek / renderFrame) sets the frame for time t, may return a promise
+    window.__meta = { dur, fps, w, h }      window.__ready = a promise (fonts, images, precomputation)
+    window.__events = [{ t, type }]         sound cues from the same numbers as the picture
+  Rules: no Date, no Math.random, no timers, no CSS animations or transitions, no state carried between frames,
+  measure after document.fonts.ready, media elements paused and seeked by t (await 'seeked').
+
+  verified: headless Chrome 155 on Windows 10 (SwiftShader flags): render.mjs --probe reports identical hashes in
+            and out of order; rendered with --shutter 6 and with --png; stills looked at.
+  not verified: Safari and Firefox; a real GPU.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seek page skeleton</title>
+<style>
+  html, body { margin: 0; background: #0f1115; overflow: hidden; }
+  #stage { position: relative; width: 1280px; height: 720px; overflow: hidden; background: #0f1115; font-family: system-ui, sans-serif; }
+  #card { position: absolute; top: 250px; height: 220px; background: #e8e3d8; }
+  #count { position: absolute; left: 0; right: 0; top: 520px; text-align: center; color: #e8e3d8; font: 700 64px/1 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  #bar { position: absolute; top: 120px; left: 0; width: 160px; height: 40px; background: #ff6a3d; border-radius: 20px; }
+  canvas { position: absolute; inset: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bar"></div>
+  <div id="card"></div>
+  <canvas id="fx" width="1280" height="720"></canvas>
+  <div id="count">0</div>
+</div>
+<script src="../scripts/spring.js"></script>
+<script>
+(() => {
+  'use strict';
+  const S = window.SenseiSpring, DUR = 4, FPS = 30;
+  const clamp = v => (v < 0 ? 0 : v > 1 ? 1 : v);
+  const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };   // stable per index
+  const card = document.getElementById('card'), count = document.getElementById('count'), bar = document.getElementById('bar');
+  const g = document.getElementById('fx').getContext('2d');
+
+  // retargets at 0.4, 1.4 and 2.4 s: [time, from, to] for width and for the centre x
+  const WIDTH = [[0.4, 120, 520], [1.4, 520, 220], [2.4, 220, 900]];
+  const CX = [[0.4, 640, 640], [1.4, 640, 420], [2.4, 420, 640]];
+  const HIT = 1.4;                                            // the sparks and the sound cue share this number
+
+  function seek(t) {
+    const w = S.track(t, 120, WIDTH, 220, 22), cx = S.track(t, 640, CX, 260, 30);
+    card.style.width = w.toFixed(2) + 'px';
+    card.style.left = (cx - w / 2).toFixed(2) + 'px';
+    card.style.borderRadius = Math.min(110, 6 + 0.15 * Math.abs(w - 520)).toFixed(2) + 'px';
+
+    const k = clamp((t - 0.2) / 0.35), whip = k * k * k;    // accelerating across the frame in about 10 frames
+    bar.style.transform = `translateX(${(-200 + whip * 1700).toFixed(1)}px)`;
+
+    const frame = Math.floor(t * FPS + 1e-6);                 // counters step per frame, never tween
+    count.textContent = String(Math.min(2026, Math.round(2026 * (1 - Math.pow(1 - clamp(frame / 75), 3)))));
+
+    g.clearRect(0, 0, 1280, 720);
+    const d = t - HIT;
+    if (d > 0 && d < 1.6) {
+      for (let i = 0; i < 90; i++) {                          // ballistic: position is a closed form of d
+        const a = hash(i) * Math.PI * 2, v = 250 + hash(i + 99) * 450;
+        const x = cx + Math.cos(a) * v * d, y = 360 + Math.sin(a) * v * d + 0.5 * 900 * d * d;
+        g.globalAlpha = Math.max(0, 1 - d / 1.6);
+        g.fillStyle = i % 3 ? '#ffd27a' : '#ff6a3d';
+        g.fillRect(x - 3, y - 3, 6, 6);
+      }
+      g.globalAlpha = 1;
+    }
+    return true;
+  }
+
+  window.__meta = { dur: DUR, fps: FPS, w: 1280, h: 720 };
+  window.__events = [{ t: 0.4, type: 'whoosh' }, { t: HIT, type: 'hit' }, { t: 2.4, type: 'whoosh' }];
+  window.__seek = window.seek = seek;
+  window.__ready = document.fonts.ready.then(() => { seek(0); window.READY = true; return true; });
+})();
+</script>
+</body>
+</html>

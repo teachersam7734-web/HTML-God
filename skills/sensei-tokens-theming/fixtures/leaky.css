@@ -1,0 +1,8 @@
+/* fixture for tokens.mjs scan: one token rule per theme, three component overrides, two colour-named tokens.
+   verified: scan reports exactly that (scripts/test-tokens.mjs). */
+html[data-theme="ink"]{--bg:#0b0a14;--text:#f4f2ff;--violet:#8b7bff}
+html[data-theme="pulse"]{--bg:#0e0904;--text:#fff;--violet:#ffa31a;--red:#ffd400}
+html[data-theme="pulse"] .card{border-radius:0;border-width:3px}
+html[data-theme="pulse"] :is(h1,h2){text-transform:uppercase}
+@media (max-width:600px){html[data-theme="pulse"] .card{padding:8px}}
+.card{background:var(--bg);color:var(--text)}

@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "blender-lab": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/lib/mcp-optin.mjs", "blender-lab"],
+      "env": {
+        "SENSEI_MCP_ON": "${user_config.blender_lab_mcp}",
+        "SENSEI_MCP_DIR": "${user_config.blender_lab_mcp_dir}"
+      }
+    },
+    "blender-live": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/lib/mcp-optin.mjs", "blender-live"],
+      "env": {
+        "SENSEI_MCP_ON": "${user_config.blender_live_mcp}",
+        "BLENDER_HOST": "localhost",
+        "BLENDER_PORT": "9876"
+      }
+    }
+  }
+}

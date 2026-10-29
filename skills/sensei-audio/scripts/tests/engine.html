@@ -1,0 +1,89 @@
+<!doctype html>
+<!--
+  engine.html: the offline and live test harness for sensei-sfx.js and sensei-room.js, driven by ../test-audio.mjs.
+  Everything that can be measured is rendered with an OfflineAudioContext (no audio device, no listening).
+  Adapted from code-media/audio/test-sfx.html in the HTML-Sensei build project's research notes (not shipped) (original to this project); the seed, calm,
+  jump and room tests are new here.
+  verified: see ../test-audio.mjs.  not verified: anything audible.
+-->
+<meta charset="utf-8"><title>audio engine tests</title>
+<button id="b">go</button>
+<script src="../sensei-sfx.js"></script>
+<script src="../sensei-room.js"></script>
+<script>
+function stats(buf, ch) {
+  const d = buf.getChannelData(ch || 0); let peak = 0, sum = 0, lastIdx = -1, maxJump = 0;
+  for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > peak) peak = a; sum += a * a; if (a > 0.002) lastIdx = i; if (i) maxJump = Math.max(maxJump, Math.abs(d[i] - d[i - 1])); }
+  return { peak: +peak.toFixed(4), rms: +Math.sqrt(sum / d.length).toFixed(5), first: +Math.abs(d[0]).toFixed(6),
+    tail: +Math.abs(d[d.length - 1]).toFixed(6), lastAudibleS: +(lastIdx / buf.sampleRate).toFixed(3), maxJump: +maxJump.toFixed(3) };
+}
+const energy = (buf, from, to) => { const d = buf.getChannelData(0), a = Math.floor(from * buf.sampleRate), b = Math.min(d.length, Math.floor(to * buf.sampleRate)); let e = 0; for (let i = a; i < b; i++) e += d[i] * d[i]; return e; };
+async function render(name, extra, seconds, createOpts) {
+  const off = new OfflineAudioContext(2, 44100 * (seconds || 2), 44100);
+  const s = SenseiSFX.create(Object.assign({ ctx: off, storageKey: 't' + Math.random(), reducedMotion: false }, createOpts || {}));
+  const end = s.play(name, Object.assign({ when: 0.1 }, extra || {}));
+  return { end, buf: await off.startRendering() };
+}
+window.runOffline = async function () {
+  const out = { sounds: {} };
+  for (const n of Object.keys(SenseiSFX.create({ ctx: new OfflineAudioContext(1, 100, 44100), reducedMotion: false }).library)) {
+    const r = await render(n); out.sounds[n] = Object.assign({ reportedEnd: +r.end.toFixed(3) }, stats(r.buf));
+  }
+  const muted = await render('pop', {}, 1, { startMuted: true }); out.mutedPeak = stats(muted.buf).peak;
+  async function volRms(v) { const off = new OfflineAudioContext(1, 44100, 44100); const s = SenseiSFX.create({ ctx: off, storageKey: 'v' + Math.random(), reducedMotion: false }); s.setVolume(v); s.play('pop', { when: 0.1 }); return stats(await off.startRendering()).rms; }
+  out.rms025 = await volRms(0.25); out.rms1 = await volRms(1);
+  const pan = await render('chime', { pan: -1 }); const L = energy(pan.buf, 0, 2); const R = (() => { const d = pan.buf.getChannelData(1); let e = 0; for (const x of d) e += x * x; return e; })();
+  out.panLeft = { L: +L.toFixed(3), R: +R.toFixed(3) };
+  // seed: same seed, same samples; different seed, different samples (typewriter uses the generator)
+  const a = await render('type', {}, 1, { seed: 5 }), b = await render('type', {}, 1, { seed: 5 }), c = await render('type', {}, 1, { seed: 6 });
+  const same = (x, y) => { const p = x.getChannelData(0), q = y.getChannelData(0); for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return false; return true; };
+  out.seedSame = same(a.buf, b.buf); out.seedDiffers = !same(a.buf, c.buf);
+  // calm: reduced motion drops whoosh, keeps chime
+  { const off = new OfflineAudioContext(1, 44100, 44100); const s = SenseiSFX.create({ ctx: off, storageKey: 'c' + Math.random(), reducedMotion: true });
+    out.calmWhoosh = s.play('whoosh', { when: 0.1 }); out.calmChime = s.play('chime', { when: 0.1 }) > 0; out.calmPeak = stats(await off.startRendering()).peak; }
+  // spatial (independent of the engine)
+  async function spat(x) { const o = new OfflineAudioContext(2, 22050, 44100); const os = o.createOscillator(); const p = o.createPanner(); p.panningModel = 'HRTF'; p.positionX.value = x; p.positionZ.value = -1; os.connect(p); p.connect(o.destination); os.start(); const r = await o.startRendering(); const e = ch => { let s = 0; for (const v of r.getChannelData(ch)) s += v * v; return +s.toFixed(1); }; return [e(0), e(1)]; }
+  out.hrtf = { left: await spat(-5), centre: await spat(0), right: await spat(5) };
+  return out;
+};
+window.runRoom = async function () {
+  const out = {};
+  const off = new OfflineAudioContext(2, 44100 * 2, 44100);
+  const room = SenseiRoom.create(off, { t60: 1.1, predelay: 0.012, seed: 3 });
+  // impulse decay: RMS over 20 ms windows right after the pre-delay and at T60
+  const ir = room.impulse.getChannelData(0), sr = 44100, w = Math.floor(0.02 * sr);
+  const win = s => { let e = 0; const a = Math.floor(s * sr); for (let i = a; i < a + w; i++) e += ir[i] * ir[i]; return Math.sqrt(e / w); };
+  out.decayDb = +(20 * Math.log10(win(0.012 + 1.1) / win(0.012 + 0.0))).toFixed(1);
+  const room2 = SenseiRoom.create(new OfflineAudioContext(2, 100, 44100), { seed: 3 });
+  out.irSameSeed = room2.impulse.getChannelData(0).every((v, i) => v === ir[i]);
+  async function mat(name, dist, extra) {
+    const o = new OfflineAudioContext(1, 44100 * 2.5, 44100); const r = SenseiRoom.create(o, { seed: 3 });
+    r[name](0.1, Object.assign({ dist }, extra || {})); const b = await o.startRendering();
+    return Object.assign(stats(b), { tailShare: +(energy(b, 0.6, 2.4) / energy(b, 0, 2.4)).toFixed(4) });   // room share of the energy
+  }
+  out.materials = {};
+  for (const m of ['glass', 'wood', 'sub', 'air']) out.materials[m] = { near: await mat(m, 0), far: await mat(m, 1) };
+  // curve: loud in the middle only
+  { const o = new OfflineAudioContext(1, 44100 * 2, 44100); const r = SenseiRoom.create(o, { seed: 3 });
+    r.airFromCurve(0.1, [0, 0, 0.1, 1, 1, 0.1, 0, 0], 1.6, { dist: 0 }); const b = await o.startRendering();
+    out.curve = { edge: +energy(b, 0.1, 0.35).toExponential(2), middle: +energy(b, 0.75, 1.05).toExponential(2), first: stats(b).first }; }
+  out.ceiling = +Math.pow(10, -8 / 20).toFixed(4);
+  return out;
+};
+window.runLive = async function () {
+  const out = {};
+  const s = SenseiSFX.create({ storageKey: 'live' + Math.random(), reducedMotion: false });
+  s.ensure(); try { await s.ctx.resume(); } catch (e) {}
+  out.state = s.ctx.state; out.outputLatency = s.ctx.outputLatency; out.baseLatency = s.ctx.baseLatency;
+  if (s.ctx.state !== 'running') return out;
+  const times = [], lead = [];
+  const sc = s.scheduler((i, t) => { times.push(t); lead.push(t - s.ctx.currentTime); }, 120, 4);
+  sc.start(s.ctx.currentTime + 0.1); await new Promise(r => setTimeout(r, 2000)); sc.stop();
+  const diffs = times.slice(1).map((t, i) => t - times[i]);
+  out.sched = { steps: times.length, minDiff: Math.min(...diffs), maxDiff: Math.max(...diffs), expected: sc.stepDur, minLead: +Math.min(...lead).toFixed(4), late: lead.filter(x => x < 0).length };
+  const t0 = performance.now(), target = s.ctx.currentTime + 0.3; await new Promise(r => s.atHeard(target, r)); out.atHeardMs = Math.round(performance.now() - t0);
+  let flashed = false; s.play('chime', { caption: 'Correct answer', flash: () => { flashed = true; } });
+  await new Promise(r => setTimeout(r, 120)); out.flashed = flashed; out.caption = (document.querySelector('[role=status]') || {}).textContent;
+  return out;
+};
+</script>

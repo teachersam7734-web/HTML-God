@@ -1,0 +1,77 @@
+<!doctype html>
+<!-- gl-seek.html: a raw WebGL2 page that follows the 3D seek contract, so verify.mjs runs the page gate AND
+     sensei-3d's gate3d on it. Contract: window.__done after the first frame; ?t=<seconds> draws that frame and no loop;
+     window.__seek(t); reduced motion draws one still frame and no loop; context loss is handled and restored.
+     Original HTML-Sensei code.
+     verified: test-gate.mjs, both gates pass (Chrome, SwiftShader, Windows).
+     not verified: a real GPU, Firefox, Safari. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gate fixture: a WebGL seek page</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0d1016; color: #e9edf3; font: 1rem/1.5 system-ui, sans-serif; }
+  main { position: relative; height: 100%; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  button { position: absolute; right: 1rem; bottom: 1rem; font: inherit; min-height: 2.75rem; padding: .5rem 1rem; color: #e9edf3; background: #0d1016; border: 1px solid #9aa4b5; border-radius: .5rem; }
+  button:focus-visible { outline: 3px solid #8cc4ff; outline-offset: 3px; }
+  h1 { position: absolute; left: 1rem; bottom: 1rem; margin: 0; font-size: 1.25rem; background: rgba(13, 16, 22, .8); padding: .25rem .5rem; }
+</style>
+</head>
+<body>
+<main>
+  <canvas id="c" role="img" aria-label="Slowly shifting colour bands"></canvas>
+  <h1>WebGL seek fixture</h1>
+  <button id="pause" type="button" aria-pressed="false">Pause</button>
+</main>
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const q = new URLSearchParams(location.search), fixedT = q.has('t') ? +q.get('t') : null;
+  const rm = matchMedia('(prefers-reduced-motion: reduce)');
+  let gl = null, prog = null, uT = null, raf = 0, first = true, paused = false;
+  const VS = '#version 300 es\nin vec2 p; out vec2 uv; void main(){ uv = p * .5 + .5; gl_Position = vec4(p, 0., 1.); }';
+  const FS = '#version 300 es\nprecision highp float; in vec2 uv; uniform float t; out vec4 o;\n' +
+    'void main(){ float b = sin(uv.x * 9. + t * 1.3) * .5 + .5; float c = sin(uv.y * 7. - t * .9) * .5 + .5;\n' +
+    ' o = vec4(.15 + .6 * b, .25 + .4 * c, .55 + .35 * b * c, 1.); }';
+  function init() {
+    gl = canvas.getContext('webgl2', { preserveDrawingBuffer: true });
+    if (!gl) { document.body.style.background = 'linear-gradient(#26324a, #0d1016)'; window.__done = true; return false; }
+    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+    prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
+    gl.useProgram(prog);
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    uT = gl.getUniformLocation(prog, 't');
+    return true;
+  }
+  function fit() {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(canvas.clientWidth * dpr); canvas.height = Math.round(canvas.clientHeight * dpr);
+  }
+  function frame(t) {
+    if (!gl || gl.isContextLost()) return;
+    gl.viewport(0, 0, canvas.width, canvas.height); gl.uniform1f(uT, t); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    if (first) { first = false; window.__done = true; }
+  }
+  const loop = now => { frame(now / 1000); raf = requestAnimationFrame(loop); };
+  function sync() {
+    cancelAnimationFrame(raf);
+    if (fixedT !== null) return frame(fixedT);
+    if (rm.matches || document.hidden || paused) return frame(2);
+    raf = requestAnimationFrame(loop);
+  }
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); cancelAnimationFrame(raf); });
+  canvas.addEventListener('webglcontextrestored', () => { first = false; init(); fit(); sync(); });
+  addEventListener('resize', () => { fit(); sync(); });
+  rm.addEventListener('change', sync); document.addEventListener('visibilitychange', sync);
+  const pb = document.getElementById('pause');
+  pb.addEventListener('click', () => { paused = !paused; pb.setAttribute('aria-pressed', String(paused)); pb.textContent = paused ? 'Play' : 'Pause'; sync(); });
+  window.__seek = t => frame(t);
+  if (init()) { fit(); sync(); }
+})();
+</script>
+</body>
+</html>

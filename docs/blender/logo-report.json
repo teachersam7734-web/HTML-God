@@ -1,0 +1,11 @@
+{
+  "blender": "5.2.2 LTS",
+  "triangles": 9800,
+  "objects": 32,
+  "outputs": [
+    "html-god-logo.glb",
+    "html-god-logo-mesh.json",
+    "html-god-logo.png"
+  ],
+  "render": "Cycles CPU, 64 samples, denoised, transparent 1400x1400"
+}

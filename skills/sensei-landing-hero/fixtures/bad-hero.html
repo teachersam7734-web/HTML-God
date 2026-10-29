@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bad hero (must fail)</title>
+<!-- fixture: every failure audit.mjs and test-landing.mjs look for. A remote font link, grey text on a white card,
+     a 900 px wide strip, an 18 px close button, an image without alt, no lang, and the original lab's chip buttons
+     whose aria-label ("Theme", "Language") does not contain their visible text ("ink", "FA").
+     verified: fails as intended (Chrome 155, Windows 10). -->
+<link rel="stylesheet" href="https://fonts.example.invalid/css?family=Display">
+<style>
+body{margin:0;font:16px system-ui,sans-serif;background:#fff}
+.hero{padding:40px;text-align:center}
+.faint{color:#aaa}
+.strip{width:900px;height:20px;background:#eee}
+.x{width:18px;height:18px;padding:0;border:1px solid #333;background:#fff}
+</style></head>
+<body><main><section class="hero"><h1>Bad hero</h1><p class="faint">Low-contrast promise text that nobody can read.</p>
+<button class="x" type="button">x</button>
+<button class="chip" id="bTheme" type="button" aria-label="Theme">ink</button>
+<button class="chip" id="bLang" type="button" aria-label="Language">FA</button>
+<img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="40" height="40">
+<div class="strip"></div></section></main>
+<script>window.__done=true</script></body></html>

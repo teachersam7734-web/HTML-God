@@ -1,0 +1,170 @@
+<!doctype html>
+<!--
+  micro.html: micro-interactions with no library: spring press via CSS linear(), hover lift that composes with an
+  entrance animation (individual transform properties), a real switch, a toast in a persistent live region with an
+  exit backstop, skeleton with aria-busy, form feedback, a pending-to-success button that keeps focus, an SVG check
+  drawn with pathLength, guarded haptics. HTML-Sensei's own code (rebuilt from the interaction research lane's
+  micro.html). Uses ../scripts/spring-linear.js and ../scripts/motion-gate.js; inline both for a single file.
+
+  verified: Chrome 156 headless (Windows 10), strict file://: ../scripts/test-motion-ui.mjs (press scale while held,
+            spring overshoot sampled per frame, hover lift after the entrance, switch by keyboard, toast announced and
+            removed, form states, focus kept through pending, check drawn, reduced motion, forced colours) and
+            sensei-verify's sensei-gate.mjs.
+  not verified: Firefox, Safari, phones; haptics (navigator.vibrate exists on Android Chromium only, untestable
+            here); feel on the target device (frame timing in software GL only).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Micro-interactions</title>
+<style>
+:root { color-scheme: dark; --bg: #0e0f13; --surface: #181a21; --fg: #f2efe8; --soft: #b9b5ab; --ac: #ffb454; --ok: #6ee7b7; --bad: #ff8a8a; --line: #6b6f7d;
+  --spring: ease; --spring-ms: 400ms; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 1.0625rem/1.55 system-ui, "Segoe UI", sans-serif; }
+main { max-inline-size: 44rem; margin-inline: auto; padding: 2rem 1rem 6rem; display: grid; gap: 1.5rem; }
+h1 { margin: 0; font-size: 1.8rem; }
+h2 { margin: 0 0 .5rem; font-size: 1rem; color: var(--soft); font-weight: 600; }
+section { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 1rem 1.25rem; }
+:focus-visible { outline: 3px solid var(--ac); outline-offset: 3px; }
+
+/* 1. Press: instant scale-down (80 ms), spring release. A plain easing first: an engine without linear() keeps it. */
+.btn { min-block-size: 2.75rem; padding: .6rem 1.4rem; border: 1px solid var(--ac); border-radius: 12px; background: var(--ac); color: #14110a;
+  font: 600 1rem system-ui, sans-serif; cursor: pointer;
+  transition: scale .35s ease, filter .15s ease;
+  transition: scale var(--spring-ms) var(--spring), filter .15s ease; }
+.btn:active { scale: .96; transition-duration: 80ms, .15s; }
+.btn[aria-disabled="true"] { cursor: progress; filter: saturate(.6); }
+@media (hover: hover) and (pointer: fine) { .btn:hover:not([aria-disabled="true"]) { filter: brightness(1.08); } }
+
+/* 2. A card that enters with a transform animation (fill both) and lifts on hover with the translate property.
+   The animation owns transform while it is on screen; translate composes with it instead of losing to it. */
+.card { padding: 1rem; border-radius: 12px; border: 1px solid var(--line); background: #1f222b; animation: rise .5s cubic-bezier(.22,1,.36,1) both;
+  transition: translate .25s ease, box-shadow .25s ease; }
+@keyframes rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (hover: hover) and (pointer: fine) { .card:hover { translate: 0 -4px; box-shadow: 0 10px 24px rgb(0 0 0 / .35); } }
+.card:active { scale: .985; transition: scale .1s ease, translate .25s ease; }
+
+/* 3. Switch: a real checkbox with role=switch, restyled. */
+.sw { appearance: none; inline-size: 56px; block-size: 32px; margin: 0; border-radius: 999px; border: 1px solid var(--line); background: #2a2d38;
+  position: relative; cursor: pointer; vertical-align: middle; transition: background-color .2s ease; }
+.sw::after { content: ""; position: absolute; inset-block-start: 3px; inset-inline-start: 3px; inline-size: 24px; block-size: 24px; border-radius: 50%;
+  background: #fff; transition: translate .4s ease; transition: translate var(--spring-ms) var(--spring); }
+.sw:checked { background: #2f8f6c; }
+.sw:checked::after { translate: 24px 0; }
+:dir(rtl) .sw:checked::after { translate: -24px 0; }
+label.row { display: flex; align-items: center; gap: .75rem; min-block-size: 2.75rem; }
+
+/* 4. Toasts: the live region exists from load; toasts are inserted into it. */
+#toasts { position: fixed; inset-inline-end: 1rem; inset-block-end: 1rem; display: grid; gap: .5rem; z-index: 20; max-inline-size: min(22rem, calc(100vw - 2rem)); }
+.toast { background: #23262f; border: 1px solid var(--line); border-radius: 12px; padding: .75rem 1rem; animation: tin var(--spring-ms) var(--spring) both; }
+.toast.out { animation: tout .2s ease-in both; }
+@keyframes tin { from { opacity: 0; translate: 0 16px; scale: .96; } }
+@keyframes tout { to { opacity: 0; translate: 0 8px; } }
+
+/* 5. Skeleton. */
+.sk { block-size: 18px; border-radius: 6px; margin-block: .5rem; background: linear-gradient(90deg, #22252e 25%, #343846 50%, #22252e 75%) 0 0 / 300% 100%; animation: sh 1.4s linear infinite; }
+@keyframes sh { to { background-position: -300% 0; } }
+
+/* 6. Form feedback: border, message and a one-off shake; the message carries the meaning. */
+.field input { inline-size: 100%; padding: .7rem; border-radius: 10px; border: 2px solid var(--line); background: #12141a; color: var(--fg); font: inherit; }
+.field input[aria-invalid="true"] { border-color: var(--bad); animation: shake .35s; }
+.err { color: var(--bad); font-size: .95rem; min-block-size: 1.5em; }
+@keyframes shake { 20% { translate: -6px 0; } 40% { translate: 6px 0; } 60% { translate: -4px 0; } 80% { translate: 4px 0; } }
+
+/* 7. Check drawn with pathLength=1: no length measuring. */
+.check { inline-size: 64px; block-size: 64px; }
+.check circle, .check path { fill: none; stroke: var(--ok); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
+.check.go circle { animation: draw .5s ease-out forwards; }
+.check.go path { animation: draw .35s .35s ease-out forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+  .sk { animation: none; }
+  .field input[aria-invalid="true"] { animation: none; }
+  .check circle, .check path { stroke-dashoffset: 0; }
+  .card:hover { translate: none; }
+}
+@media (forced-colors: active) { .sw:checked { background: Highlight; } .sw::after { background: CanvasText; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Micro-interactions</h1>
+  <section aria-labelledby="h1"><h2 id="h1">Press and pending</h2>
+    <button class="btn" id="save" type="button">Save</button>
+    <svg class="check" id="check" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" pathLength="1"/><path d="M20 33l9 9 16-18" pathLength="1"/></svg>
+  </section>
+  <section aria-labelledby="h2"><h2 id="h2">Card</h2>
+    <div class="card" id="card"><strong>Lesson 4</strong><p style="margin:.25rem 0 0">Hover lifts this card after its entrance.</p></div>
+  </section>
+  <section aria-labelledby="h3"><h2 id="h3">Switch</h2>
+    <label class="row" for="sw">Notifications <input class="sw" id="sw" type="checkbox" role="switch"></label>
+  </section>
+  <section aria-labelledby="h4"><h2 id="h4">Toast</h2><button class="btn" id="toastbtn" type="button">Show toast</button></section>
+  <section aria-labelledby="h5" aria-busy="true" id="loading"><h2 id="h5">Loading</h2><div class="sk" style="inline-size:80%"></div><div class="sk" style="inline-size:60%"></div></section>
+  <section aria-labelledby="h6"><h2 id="h6">Form</h2>
+    <form id="f" novalidate><div class="field"><label for="em">Email</label>
+      <input id="em" type="email" required autocomplete="email" aria-describedby="em-err"><div class="err" id="em-err"></div></div>
+      <button class="btn" type="submit">Subscribe</button></form>
+  </section>
+</main>
+<div id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
+<script src="../scripts/spring-linear.js"></script>
+<script src="../scripts/motion-gate.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  // One spring for the page: stiffness 260, damping 16 (about 16% overshoot); the duration is the spring's settle time.
+  window.__spring = springLinear.apply(document.documentElement, 'spring', { stiffness: 260, damping: 16 });
+
+  function haptic(ms) { try { if (navigator.vibrate && !SenseiMotionGate.reduce) navigator.vibrate(ms || 10); } catch {} }
+
+  // Toast: auto-dismiss after 4 s, paused while hovered; exit on animationend with a backstop of about twice the exit.
+  function toast(msg, ms = 4000) {
+    const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; $('toasts').append(t);
+    let timer = setTimeout(close, ms);
+    t.addEventListener('pointerenter', () => clearTimeout(timer));
+    t.addEventListener('pointerleave', () => { timer = setTimeout(close, 1500); });
+    function close() { t.classList.add('out'); const done = () => t.remove(); t.addEventListener('animationend', done, { once: true }); setTimeout(done, 450); }
+    return t;
+  }
+  window.toast = toast;
+  $('toastbtn').addEventListener('click', () => { toast('Saved'); haptic(10); });
+
+  // Pending to success without losing focus: aria-disabled plus a guard, never disabled on the focused button.
+  const save = $('save');
+  save.addEventListener('click', () => {
+    if (save.getAttribute('aria-disabled') === 'true') return;
+    save.style.minInlineSize = save.offsetWidth + 'px';
+    save.setAttribute('aria-disabled', 'true'); save.textContent = 'Saving...';
+    setTimeout(() => {
+      save.removeAttribute('aria-disabled'); save.textContent = 'Saved'; haptic(15);
+      $('check').classList.remove('go'); void $('check').getBoundingClientRect(); $('check').classList.add('go');
+      toast('Changes saved');
+      setTimeout(() => { save.textContent = 'Save'; }, 1500);
+    }, 300);
+  });
+
+  // Loading: replace the skeleton, flip aria-busy.
+  setTimeout(() => { const l = $('loading'); l.querySelectorAll('.sk').forEach(s => s.remove()); l.insertAdjacentHTML('beforeend', '<p>Loaded content.</p>'); l.setAttribute('aria-busy', 'false'); window.__loaded = true; }, 400);
+
+  // Form: validate on blur, then live; on submit focus the first invalid field.
+  const f = $('f'), em = $('em'), err = $('em-err'); let touched = false;
+  function validate() {
+    const ok = em.validity.valid && em.value.length > 0;
+    em.setAttribute('aria-invalid', ok ? 'false' : 'true');
+    err.textContent = ok ? '' : (em.value ? 'That does not look like an email address.' : 'Enter your email.');
+    return ok;
+  }
+  em.addEventListener('blur', () => { touched = true; validate(); });
+  em.addEventListener('input', () => { if (touched) validate(); });
+  f.addEventListener('submit', e => { e.preventDefault(); touched = true; if (!validate()) { em.focus(); haptic([20, 40, 20]); } else toast('Subscribed'); });
+
+  window.__done = true;
+})();
+</script>
+</body>
+</html>

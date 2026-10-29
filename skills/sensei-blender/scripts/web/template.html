@@ -1,0 +1,162 @@
+<!doctype html>
+<!--
+  template.html: the animated-GLB player that build_html.mjs fills in. One offline file: three.js bundled as an IIFE
+  (global GLBDEMO), the GLB as base64 in an inert text/plain script, for Draco the decoder too. Every clip in the GLB
+  gets one AnimationMixer action and a checkbox; speed slider; Pause or Play button.
+  Page contract (the same as sensei-3d, so its gate3d.mjs can check this page too):
+    window.__done = true after the first frame is drawn (also after a failure message);
+    ?t=<seconds> draws that pose and starts no loop; window.__seek(t) poses every clip at t and draws;
+    prefers-reduced-motion: reduce starts paused on the first pose and runs no loop until the viewer presses Play;
+    the loop stops when the tab is hidden or the stage is off screen; context loss and restore redraw the same frame.
+  QA hooks: window.__demo { clips, codec, getTime, stats, setPlaying, seek, frame }; document.body.dataset.ready = "1".
+  Adapted from blender-demo/web/template.html in the HTML-Sensei build project's research notes (not shipped) (run there: ready, clock advancing, non-blank,
+  loop seam 0.0); the page contract, the loop gate, the context-loss path and the on-demand redraw are new here.
+  verified: see scripts/web/test-web.mjs (Windows 10, Node 24, Chrome 155 headless with SwiftShader, three 0.186.1):
+            Draco and Meshopt builds load from file:// with no network, clock advances, frame not blank, reduced
+            motion still, ?t= poses differ, context loss round trip, loop seam of the captured clip.
+  not verified: frame rate on a target device; Safari and Firefox; touch orbiting on a real phone.
+  Original code of this project. three.js (MIT) keeps its licence block inside the bundle.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root{--bg:#0b0f17;--fg:#e8edf6;--mut:#8b97ab;--acc:#4fb3ff;--card:#121826cc;color-scheme:dark}
+@media (prefers-color-scheme:light){:root{--bg:#eef2f8;--fg:#0e1624;--mut:#556178;--acc:#0b72c9;--card:#ffffffcc;color-scheme:light}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,Segoe UI,Roboto,sans-serif}
+#stage{position:fixed;inset:0}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+.panel{position:fixed;left:16px;right:16px;bottom:16px;max-width:520px;padding:14px 16px;background:var(--card);backdrop-filter:blur(10px);border-radius:14px;border:1px solid #ffffff1a}
+h1{margin:0 0 2px;font-size:16px}
+p.sub{margin:0 0 10px;color:var(--mut);font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+button{font:inherit;color:var(--fg);background:transparent;border:1px solid var(--acc);border-radius:8px;padding:6px 14px;cursor:pointer;min-height:36px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+label{display:inline-flex;gap:6px;align-items:center;min-height:36px}
+input[type=range]{width:110px}
+#msg{position:fixed;inset:0;display:none;place-items:center;text-align:center;padding:24px;color:var(--mut)}
+@media (forced-colors:active){button{border:1px solid ButtonText}.panel{border:1px solid CanvasText}}
+</style>
+</head>
+<body>
+<div id="stage" role="img" aria-label="__ALT__"></div>
+<div id="msg" role="alert"></div>
+<section class="panel" aria-label="Animation controls">
+  <h1>__TITLE__</h1>
+  <p class="sub" id="sub">Loading model...</p>
+  <div class="row">
+    <button id="play" type="button" aria-pressed="true">Pause</button>
+    <span id="clips" class="row"></span>
+    <label>Speed <input id="speed" type="range" min="0.1" max="2" step="0.1" value="1" aria-label="Playback speed"></label>
+  </div>
+</section>
+<script type="text/plain" id="glb-data" data-codec="__CODEC__">__GLB_B64__</script>
+__DRACO_TAGS__
+<script>__BUNDLE__</script>
+<script>
+(function(){
+  "use strict";
+  var G = GLBDEMO, $ = function(i){return document.getElementById(i)};
+  var q = new URLSearchParams(location.search);
+  var FIXED_T = q.has("t") ? parseFloat(q.get("t")) : null;          // capture mode: one pose, no loop
+  var mqReduce = matchMedia("(prefers-reduced-motion: reduce)");
+  function fail(t){var m=$("msg");m.textContent=t;m.style.display="grid";$("sub").textContent="";window.__done=true;}
+  function b64(id, asString){
+    var s=atob($(id).textContent.trim()), n=s.length, u=new Uint8Array(n);
+    for(var i=0;i<n;i++)u[i]=s.charCodeAt(i);
+    return asString? new TextDecoder().decode(u) : u.buffer;
+  }
+  var renderer;
+  try{ renderer=new G.WebGLRenderer({antialias:true}); }catch(e){ return fail("WebGL is not available in this browser. The model cannot be shown here."); }
+  var stage=$("stage"), canvas=renderer.domElement;
+  stage.appendChild(canvas);
+  var scene=new G.Scene(), pm=null;
+  // Renderer state and the PMREM environment are GPU objects: build them again after a context restore.
+  function applyState(){
+    renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+    renderer.toneMapping=G.ACESFilmicToneMapping; renderer.outputColorSpace=G.SRGBColorSpace;
+    scene.background=new G.Color(getComputedStyle(document.body).backgroundColor);
+    if(pm)pm.dispose(); pm=new G.PMREMGenerator(renderer);
+    if(scene.environment)scene.environment.dispose();
+    scene.environment=pm.fromScene(new G.RoomEnvironment(),0.04).texture;
+  }
+  applyState();
+  var key=new G.DirectionalLight(0xffffff,1.6); key.position.set(3,5,4); scene.add(key);
+  var cam=new G.PerspectiveCamera(40,1,0.1,100);
+  var controls=new G.OrbitControls(cam,canvas); controls.enableDamping=false;
+
+  var loader=new G.GLTFLoader();
+  var codec=$("glb-data").dataset.codec;
+  if(codec==="draco"){
+    loader.setDRACOLoader(new G.InlineDRACOLoader(undefined,{wrapper:b64("draco-wrapper",true),wasm:b64("draco-wasm"),js:""}));
+  } else if(codec==="meshopt"){
+    loader.setMeshoptDecoder(G.MeshoptDecoder);
+  }
+  var mixer=null, actions=[], userPlaying=!mqReduce.matches, onScreen=true, raf=0, timer=new G.Timer(); timer.connect(document);
+  function draw(){ renderer.render(scene,cam); }
+  function resize(){var w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();if(!raf)draw();}
+  // One gate for every reason to run or stop the loop.
+  function allowed(){ return !!mixer && FIXED_T===null && userPlaying && !document.hidden && onScreen; }
+  function tick(ts){
+    raf=requestAnimationFrame(tick);
+    timer.update(ts);
+    mixer.update(Math.min(timer.getDelta(),0.1));
+    draw();
+  }
+  function sync(){
+    var want=allowed();
+    if(!want&&raf){cancelAnimationFrame(raf);raf=0;}
+    if(want&&!raf){timer.reset();raf=requestAnimationFrame(tick);}
+    if(!raf)draw();
+  }
+  function seek(t){ actions.forEach(function(a){a.time=t;}); if(mixer)mixer.update(0); draw(); return true; }
+  window.__seek=seek;
+  controls.addEventListener("change",function(){ if(!raf)draw(); });
+  new ResizeObserver(resize).observe(stage);
+  document.addEventListener("visibilitychange",sync);
+  new IntersectionObserver(function(es){onScreen=es[0].isIntersecting;sync();}).observe(stage);
+  canvas.addEventListener("webglcontextlost",function(e){e.preventDefault();if(raf){cancelAnimationFrame(raf);raf=0;}});
+  canvas.addEventListener("webglcontextrestored",function(){applyState();sync();});
+  resize();
+
+  loader.parse(b64("glb-data"),"",function(gltf){
+    scene.add(gltf.scene);
+    mixer=new G.AnimationMixer(gltf.scene);
+    var host=$("clips");
+    gltf.animations.forEach(function(clip){
+      var a=mixer.clipAction(clip); a.setLoop(G.LoopRepeat,Infinity); a.play(); actions.push(a);
+      var l=document.createElement("label"), cb=document.createElement("input"); cb.type="checkbox"; cb.checked=true;
+      cb.addEventListener("change",function(){a.enabled=cb.checked; if(!raf){mixer.update(0);draw();}});
+      l.appendChild(cb); l.appendChild(document.createTextNode(clip.name+" ("+clip.duration.toFixed(1)+"s)")); host.appendChild(l);
+    });
+    mixer.update(0);                      // pose the model BEFORE measuring it
+    gltf.scene.updateMatrixWorld(true);
+    gltf.scene.traverse(function(o){ if(o.isSkinnedMesh) o.skeleton.update(); });
+    var box=new G.Box3().setFromObject(gltf.scene,true), c=box.getCenter(new G.Vector3()), s=box.getSize(new G.Vector3()).length();
+    if(!isFinite(s)||s===0){ box=new G.Box3(new G.Vector3(-3,-3,-3),new G.Vector3(3,3,3)); c=new G.Vector3(); s=10; console.warn("bounds were not finite; using a fallback frame"); }
+    controls.target.copy(c); cam.position.set(c.x+s*0.55,c.y+s*0.25,c.z+s*0.75); cam.near=s/100; cam.far=s*10; cam.updateProjectionMatrix(); controls.update();
+    var reduced=mqReduce.matches&&FIXED_T===null;
+    $("sub").textContent=gltf.animations.length+" clips, codec: "+codec+(reduced?" (paused: reduced motion is on; press Play to run it)":"");
+    function label(){$("play").textContent=userPlaying?"Pause":"Play";$("play").setAttribute("aria-pressed",String(userPlaying));}
+    label();
+    $("play").addEventListener("click",function(){userPlaying=!userPlaying;label();sync();});
+    window.__demo={clips:gltf.animations.map(function(a){return a.name}),codec:codec,getTime:function(){return actions[0]?actions[0].time:0},
+      stats:function(){return {tris:renderer.info.render.triangles,calls:renderer.info.render.calls}},
+      setPlaying:function(v){userPlaying=!!v;label();sync();},
+      seek:seek,
+      frame:function(){return {cam:cam.position.toArray(),target:controls.target.toArray(),size:s,box:[box.min.toArray(),box.max.toArray()]}}};
+    if(FIXED_T!==null) seek(FIXED_T); else sync();
+    draw();
+    document.body.dataset.ready="1";
+    requestAnimationFrame(function(){window.__done=true;});
+  },function(e){fail("Could not decode the model: "+(e&&e.message||e));});
+
+  $("speed").addEventListener("input",function(){if(mixer)mixer.timeScale=+this.value;});
+  mqReduce.addEventListener("change",function(){ if(mqReduce.matches){userPlaying=false; if(window.__demo)window.__demo.setPlaying(false);} sync(); });
+})();
+</script>
+</body>
+</html>

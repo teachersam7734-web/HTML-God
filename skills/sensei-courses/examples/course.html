@@ -1,0 +1,135 @@
+<!doctype html>
+<!--
+  course.html: a two-lesson course on the HTML-Sensei course engine (../scripts/engine.js). Hash routing (#/l1), six
+  question types, a lesson pass mark, progress that survives reloads, words for blocked or full storage, and a
+  portable progress code in a native dialog. For one offline file, inline engine.js with sensei-single-file's builder.
+
+  verified: Windows 10, Node 24, playwright-core 1.62.1, installed Chrome 155, strict file:// (scripts/test-course.mjs,
+            and sensei-verify's sensei-gate.mjs with examples/course.steps.json).
+  not verified: Firefox and Safari; screen-reader speech; phones.
+  Origin: code-apps/course/course.html in the HTML-Sensei build project's research notes (not shipped) (HTML-Sensei's own code), extended with the storage words,
+  the progress code dialog and versioned progress.
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reading skills: mini course</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1b1f24;--muted:#4f5864;--accent:#0b5cad;--on-accent:#fff;--ok:#116329;--no:#a32020;--warn:#7a4b00;--line:#767f8a;--soft:#c9ced6;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#12161c;--fg:#eef1f5;--muted:#aab3bf;--accent:#7cb7ff;--on-accent:#001a33;--ok:#6fdc8c;--no:#ff8f8f;--warn:#ffc46b;--line:#8a94a1;--soft:#3a424d}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:18px/1.55 system-ui,"Segoe UI",Roboto,sans-serif}
+.skip{position:absolute;left:.5rem;top:-3rem;padding:.5rem 1rem;background:var(--accent);color:var(--on-accent);border-radius:.4rem}.skip:focus{top:.5rem}
+header,main{max-width:46rem;margin:0 auto;padding:1rem}
+nav ol{display:flex;gap:.5rem;list-style:none;padding:0;margin:0;flex-wrap:wrap}
+nav a{display:inline-block;padding:.5rem .8rem;min-height:44px;border:1px solid var(--line);border-radius:.5rem;color:var(--fg);text-decoration:none}
+nav a[aria-current=page]{border-color:var(--accent);outline:2px solid var(--accent)}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+main:focus{outline:none}
+fieldset{border:1px solid var(--line);border-radius:.6rem;margin:1rem 0;padding:.8rem 1rem}legend{font-weight:600;padding:0 .4rem}
+.opt{display:flex;gap:.6rem;padding:.5rem;min-height:44px;align-items:center}.opt input{width:1.6rem;height:1.6rem;margin:0}
+.q input[type=text],select,textarea{font:inherit;padding:.5rem;min-height:44px;border:1px solid var(--line);border-radius:.4rem;background:var(--bg);color:var(--fg)}
+textarea{width:100%;min-height:6rem;font-family:ui-monospace,Consolas,monospace;font-size:.85rem}
+button{font:inherit;min-height:44px;min-width:44px;padding:.4rem 1rem;border-radius:.5rem;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer}
+button.ghost{background:transparent;color:var(--fg);border-color:var(--line)}
+button[disabled]{opacity:.6;cursor:default}li button{margin-left:.4rem}
+.fb{min-height:1.6em;margin:.5rem 0;font-weight:600}.fb.ok{color:var(--ok)}.fb.no{color:var(--no)}.fb.warn{color:var(--warn)}
+.fb.ok::before{content:"\2713  "}.fb.no::before{content:"\2715  "}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.row{display:flex;gap:.8rem;align-items:center;margin:.4rem 0;flex-wrap:wrap}.hint{color:var(--muted);margin:.2rem 0}
+.note{border:1px solid var(--warn);border-radius:.5rem;padding:.6rem .8rem;color:var(--fg)}
+progress{width:100%;height:.8rem;accent-color:var(--accent)}
+dialog{max-width:36rem;width:calc(100% - 2rem);border:1px solid var(--line);border-radius:.8rem;background:var(--bg);color:var(--fg)}
+dialog::backdrop{background:rgb(0 0 0 / .5)}
+@media (forced-colors:active){.fb.ok,.fb.no,.fb.warn{color:CanvasText}button{border:1px solid ButtonText}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the lesson</a>
+<header><h1>Reading skills: mini course</h1>
+  <nav aria-label="Lessons"><ol id="nav"></ol></nav>
+  <p id="sum" role="status"></p><progress id="bar" max="100" value="0" aria-label="Course progress"></progress>
+  <p id="store-note" class="note" hidden></p>
+  <p><button type="button" class="ghost" id="save-open">Save or restore progress</button></p>
+</header>
+<main id="main" tabindex="-1"></main>
+<dialog id="dlg-save" aria-labelledby="dlg-save-h">
+  <h2 id="dlg-save-h">Your progress code</h2>
+  <p>Copy this code to keep your progress, or paste a code here to restore it.</p>
+  <label for="save-code">Progress code</label>
+  <textarea id="save-code" spellcheck="false"></textarea>
+  <p class="row"><button type="button" id="load-go">Restore from this code</button><button type="button" class="ghost" id="dlg-close">Close</button></p>
+  <p id="save-out" role="status"></p>
+</dialog>
+<script src="../scripts/engine.js"></script>
+<script>
+(function () {
+  var E = window.CourseEngine, store = E.makeStore("mini-course");
+  var LESSONS = [
+    { id: "l1", title: "Scanning", body: "Scanning means looking for a specific detail without reading every word.",
+      qs: [ { type: "mcq", prompt: "What is scanning?", options: ["Reading every word", "Looking for a specific detail", "Summarising"], answer: 1, explain: "Scanning targets one detail." },
+            { type: "tfng", prompt: "The passage says scanning is slower than skimming.", answer: 2, explain: "Not Given: speed is never compared." },
+            { type: "gap", prompt: "Scanning looks for a specific ____ .", answer: ["detail", "fact"], explain: "Detail or fact." } ] },
+    { id: "l2", title: "Structure", body: "Good readers notice structure before content.",
+      qs: [ { type: "multi", prompt: "Pick the structural clues.", options: ["Headings", "Font colour of one word", "Topic sentences", "Page number"], answer: [0, 2], explain: "Headings and topic sentences." },
+            { type: "order", prompt: "Order the steps.", items: ["Preview", "Read", "Review"], answer: [0, 1, 2], explain: "Preview, read, review." },
+            { type: "match", prompt: "Match term to meaning.", pairs: [["Skim", "Get the gist"], ["Scan", "Find a detail"]], explain: "Skim for gist, scan for detail." } ] }
+  ];
+  var progress = E.makeProgress(store, LESSONS, 0.7, { schema: 1 }), main = document.getElementById("main"), cur = null, booted = false;
+  var nav = document.getElementById("nav"), note = document.getElementById("store-note");
+  nav.innerHTML = LESSONS.map(function (l) { return '<li><a href="#/' + l.id + '" data-id="' + l.id + '">' + E.esc(l.title) + "</a></li>"; }).join("");
+  /* two failures, two sets of words: blocked from the start, or full after a write */
+  function storeWords(cause) {
+    if (progress.readOnly()) return "This progress was saved by a newer version of the course, so this version will not change it. Today's answers are kept for this visit only.";
+    return cause === "full" ? "This browser's storage for the course is full, so new progress is kept only until you close this tab. Save your progress code to keep it."
+      : "This browser is blocking storage for this page, so your progress lasts only until you close this tab. Save your progress code before you go.";
+  }
+  function paintNote() {
+    var bad = !store.persistent || progress.readOnly();
+    note.hidden = !bad; if (bad) note.textContent = storeWords(store.cause());
+  }
+  store.onFail = function () { paintNote(); };
+  function paintSummary() {
+    var c = progress.course();
+    document.getElementById("sum").textContent = c.done + " of " + c.total + " lessons passed" + (store.persistent && !progress.readOnly() ? "" : " (kept for this visit only)");
+    document.getElementById("bar").value = Math.round(c.done / c.total * 100);
+    [].forEach.call(nav.querySelectorAll("a"), function (a) {
+      var p = progress.get(a.dataset.id);
+      a.textContent = LESSONS.filter(function (l) { return l.id === a.dataset.id; })[0].title + (p.status === "passed" ? " (passed)" : p.status === "attempted" ? " (attempted)" : "");
+      if (cur && a.dataset.id === cur) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    });
+  }
+  function open(id) {
+    var l = LESSONS.filter(function (x) { return x.id === id; })[0];
+    /* an unknown lesson goes to the first one, under a corrected address */
+    if (!l) { l = LESSONS[0]; try { history.replaceState(null, "", "#/" + l.id); } catch (e) {} }
+    cur = l.id;
+    main.innerHTML = "<h2>" + E.esc(l.title) + "</h2><p>" + E.esc(l.body) + "</p>";
+    var scores = [], n = 0;
+    l.qs.forEach(function (q) { E.mount(q, main, { attempts: q.type === "gap" ? 2 : 1, onDone: function (r) {
+      scores.push(r.score); n++;
+      if (n === l.qs.length) {
+        var s = scores.reduce(function (a, b) { return a + b; }, 0) / scores.length, p = progress.record(l.id, s);
+        window.__last = { id: l.id, score: s, status: p.status }; paintSummary();
+        document.getElementById("sum").textContent += ". Lesson score " + Math.round(s * 100) + " per cent.";
+      }
+    } }); });
+    document.title = l.title + ": mini course"; paintSummary();
+    /* the new view's container takes focus (not on the first load), so Tab starts in the lesson */
+    if (booted) main.focus({ preventScroll: true });
+  }
+  function route() { var m = /^#\/(\w+)/.exec(location.hash); open(m ? m[1] : LESSONS[0].id); }
+  /* the progress code */
+  var dlg = document.getElementById("dlg-save"), out = document.getElementById("save-out"), ta = document.getElementById("save-code");
+  document.getElementById("save-open").addEventListener("click", function () { ta.value = store.dump(["progress"]); out.textContent = ""; dlg.showModal(); ta.select(); });
+  document.getElementById("dlg-close").addEventListener("click", function () { dlg.close(); });
+  document.getElementById("load-go").addEventListener("click", function () {
+    try { store.load(ta.value); out.textContent = "Restored. Reloading the course."; setTimeout(function () { location.reload(); }, 400); }
+    catch (e) { out.textContent = "That code could not be read. Paste the whole code, starting CE1."; }
+  });
+  addEventListener("hashchange", route); route(); paintNote(); booted = true;
+  window.__course = { store: store, progress: progress };
+})();
+</script>
+</body>
+</html>

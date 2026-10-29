@@ -1,0 +1,87 @@
+<!doctype html>
+<!--
+  depthholo.html: a hologram of a figure from ONE image plus a depth map (white = near). Two layers sharing the data:
+  (A) a skin: a 200 x 250 segment plane displaced along z by depth, alpha-cut by the matte, shaded by luminance
+  (pow 1.3 so a face reads), scanlines, a glitch slab, a materialise reveal from the feet up; walls of the relief are
+  faded by the STEEPNESS of the relief (the model-space normal's z from the depth gradient), not by the view angle,
+  and the sway is clamped to about 22 degrees (SENSEI-LOG); (B) dots: one point per kept pixel, every second pixel.
+  The two images here are drawn on canvases as stand-ins; in a project they are two small baked WebP data URIs
+  (RGBA cut-out with alpha = matte, greyscale depth), and the dots are a baked base64 Float32Array (SENSEI-LOG).
+  ?m=skin|dots|both, ?t=, window.__seek; reduced motion: still, glitch off, reveal complete.
+  Build: node ../../sensei-3d/scripts/build-vendor.mjs vendor entry-min.js
+  verified: Windows 10, Chrome 155 + SwiftShader, three 0.186.1: gate3d.mjs passed; reveal checked at t=0.5 and t=3.
+  not verified: a real cut-out and depth map in this page (Save The Damsel used them, SENSEI-LOG); target frame rate.
+  Adapted from code-3d/depthholo.html in the HTML-Sensei build project's research notes (not shipped) (original code of this project).
+-->
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Depth hologram</title>
+<style>html,body{margin:0;height:100%;background:#02060a}canvas{display:block;width:100%;height:100%}</style>
+<canvas id="c" role="img" aria-label="A figure materialising as a blue hologram"></canvas>
+<script src="vendor/t-min.js"></script>
+<script>
+(() => {
+const { WebGLRenderer, Scene, PerspectiveCamera, ShaderMaterial, Mesh, PlaneGeometry, CanvasTexture, SRGBColorSpace, LinearFilter, AdditiveBlending, DoubleSide, Points, BufferGeometry, BufferAttribute } = T;
+const q = new URLSearchParams(location.search), FIXED_T = q.has('t') ? +q.get('t') : null;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// stand-ins for the two baked images
+const W = 256, H = 320;
+function cv(fn) { const c = document.createElement('canvas'); c.width = W; c.height = H; fn(c.getContext('2d')); return c; }
+const rgba = cv(g => { g.clearRect(0, 0, W, H); const gr = g.createRadialGradient(128, 110, 10, 128, 130, 110); gr.addColorStop(0, '#ffe3c2'); gr.addColorStop(1, '#a9663a'); g.fillStyle = gr;
+  g.beginPath(); g.ellipse(128, 100, 62, 76, 0, 0, 7); g.fill(); g.fillStyle = '#46566e'; g.beginPath(); g.moveTo(30, H); g.quadraticCurveTo(128, 170, 226, H); g.fill(); });
+const depth = cv(g => { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); const gr = g.createRadialGradient(128, 100, 5, 128, 100, 80); gr.addColorStop(0, '#fff'); gr.addColorStop(1, '#555'); g.fillStyle = gr;
+  g.beginPath(); g.ellipse(128, 100, 62, 76, 0, 0, 7); g.fill(); g.fillStyle = '#666'; g.beginPath(); g.moveTo(30, H); g.quadraticCurveTo(128, 170, 226, H); g.fill(); });
+const tc = new CanvasTexture(rgba), td = new CanvasTexture(depth); tc.colorSpace = SRGBColorSpace; [tc, td].forEach(t => t.minFilter = t.magFilter = LinearFilter);
+
+const canvas = document.getElementById('c'), r = new WebGLRenderer({ canvas, antialias: true });
+const scene = new Scene(), cam = new PerspectiveCamera(35, 1, .1, 50); cam.position.set(0, 0, 5.2);
+const common = `uniform sampler2D uMap, uDepth; uniform float uTime, uAmp, uReveal, uGlitch; uniform vec2 uTexel; varying vec2 vUv; varying float vSteep;
+  float hash(float n){ return fract(sin(n*127.1)*43758.5453); }`;
+const skin = new ShaderMaterial({ transparent: true, depthWrite: false, blending: AdditiveBlending, side: DoubleSide,
+  uniforms: { uMap: { value: tc }, uDepth: { value: td }, uTime: { value: 0 }, uAmp: { value: .9 }, uReveal: { value: 1 }, uGlitch: { value: 1 }, uTexel: { value: [1 / W, 1 / H] } },
+  vertexShader: common + `void main(){ vUv = uv; float d = texture2D(uDepth, uv).r; vec3 p = position; p.z += (d - .5) * uAmp;
+    // steepness of the relief: model-space normal from the depth gradient (plane is 2.56 x 3.2 units)
+    float dx = (texture2D(uDepth, uv + vec2(uTexel.x, 0.)).r - texture2D(uDepth, uv - vec2(uTexel.x, 0.)).r) * uAmp / (2. * uTexel.x * 2.56);
+    float dy = (texture2D(uDepth, uv + vec2(0., uTexel.y)).r - texture2D(uDepth, uv - vec2(0., uTexel.y)).r) * uAmp / (2. * uTexel.y * 3.2);
+    vSteep = normalize(vec3(-dx, -dy, 1.)).z;                         // 1 = facing out, near 0 = a stretched wall
+    float slot = floor(uTime * 7.); float on = step(.85, hash(slot + 4.));
+    p.x += (hash(slot + 2.) - .5) * .25 * on * uGlitch * (1. - smoothstep(0., .08, abs(uv.y - hash(slot))));   // glitch slab
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.); }`,
+  fragmentShader: common + `void main(){ vec4 c = texture2D(uMap, vUv); if (c.a < .5) discard; float d = texture2D(uDepth, vUv).r;
+    float lum = dot(c.rgb, vec3(.3, .59, .11)); float scan = .55 + .45 * pow(.5 + .5 * sin(vUv.y * 260. - uTime * 5.), 3.);
+    float reveal = 1. - smoothstep(0., .06, vUv.y - uReveal);                  // uv.y runs up from the feet
+    float wall = smoothstep(.25, .6, vSteep);                                  // fade walls by steepness, not by view angle
+    vec3 col = vec3(.2, .85, 1.) * (.15 + pow(lum, 1.3) * 1.2) * scan * (.6 + .6 * d) * wall;
+    gl_FragColor = vec4(col * reveal, 1.); }` });
+const skinMesh = new Mesh(new PlaneGeometry(2.56, 3.2, 200, 250), skin); scene.add(skinMesh);
+const pc = rgba.getContext('2d').getImageData(0, 0, W, H).data, pd = depth.getContext('2d').getImageData(0, 0, W, H).data, pts = [], cols = [];
+for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) { const i = (y * W + x) * 4; if (pc[i + 3] < 128) continue;
+  pts.push((x / W - .5) * 2.56, (.5 - y / H) * 3.2, (pd[i] / 255 - .5) * .9); cols.push(pc[i] / 255, pc[i + 1] / 255, pc[i + 2] / 255); }
+const pg = new BufferGeometry(); pg.setAttribute('position', new BufferAttribute(new Float32Array(pts), 3)); pg.setAttribute('aCol', new BufferAttribute(new Float32Array(cols), 3));
+const dots = new Points(pg, new ShaderMaterial({ transparent: true, depthWrite: false, blending: AdditiveBlending, uniforms: { uPx: { value: 1 }, uReveal: { value: 1 } },
+  vertexShader: `uniform float uPx; attribute vec3 aCol; varying vec3 vC; varying float vY; void main(){ vC = aCol; vY = position.y / 3.2 + .5;
+    vec4 mv = modelViewMatrix * vec4(position, 1.); gl_Position = projectionMatrix * mv; gl_PointSize = uPx * 3. * (5.2 / -mv.z); }`,
+  fragmentShader: `uniform float uReveal; varying vec3 vC; varying float vY; void main(){ float r = length(gl_PointCoord - .5); if (r > .5 || vY > uReveal) discard;
+    float lum = dot(vC, vec3(.3, .59, .11)); gl_FragColor = vec4(vec3(.2, .9, 1.) * pow(lum, 1.1) * 1.8, 1.) * (1. - 2. * r); }` }));
+scene.add(dots);
+const mode = q.get('m') || 'both'; skinMesh.visible = mode !== 'dots'; dots.visible = mode !== 'skin';
+const YAW = .38;                                                              // about 22 degrees: beyond it the slab shows
+function frame(t) {
+  const still = reduce && FIXED_T === null, rev = still ? 1 : Math.min(1, t / 2.5);
+  skin.uniforms.uTime.value = t; skin.uniforms.uReveal.value = rev; skin.uniforms.uGlitch.value = still ? 0 : 1; dots.material.uniforms.uReveal.value = rev;
+  skinMesh.rotation.y = dots.rotation.y = Math.sin(t * .6) * YAW;
+  r.setClearColor(0x02060a, 1); r.render(scene, cam);
+}
+window.__seek = frame;
+function size() { const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return; const d = Math.min(devicePixelRatio || 1, 2); r.setPixelRatio(d); r.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); dots.material.uniforms.uPx.value = d; if (!raf) frame(FIXED_T ?? (reduce ? 3 : el)); }
+let raf = 0, t0 = performance.now(), el = 0;
+const live = () => FIXED_T === null && !reduce && !document.hidden;
+const loop = now => { raf = requestAnimationFrame(loop); el = (now - t0) / 1000; frame(el); };
+function sync() { if (!live() && raf) { cancelAnimationFrame(raf); raf = 0; } if (!raf) frame(FIXED_T ?? (reduce ? 3 : el)); if (live() && !raf) { t0 = performance.now() - el * 1000; raf = requestAnimationFrame(loop); } }
+document.addEventListener('visibilitychange', sync);
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); cancelAnimationFrame(raf); raf = 0; });
+canvas.addEventListener('webglcontextrestored', sync);
+new ResizeObserver(size).observe(canvas); size(); sync();
+window.__done = true;
+})();
+</script>
+</html>

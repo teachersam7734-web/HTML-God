@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Starter Rich: replace me</title>
+<meta name="description" content="GOAT-HTML rich starter: tokens, overlays, hash router, store, SFX, HUD and dock shell; offline, no network requests.">
+<meta name="theme-color" content="#0a0812">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<!-- Fonts: no network request (offline by default). The stacks use Space Grotesk, Inter and
+     JetBrains Mono when installed, else system faces. To ship a named family, embed it as a
+     base64 woff2 @font-face (references/media-embedding.md section 4, or html-sensei:sensei-typography). -->
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --bg:#0a0812; --ink:#f2f0ff; --dim:#9c96b8; --accent:#7c6cff; --accent-2:#4fd1c5;
+  --line:rgba(255,255,255,.09);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --dock-h:66px;
+  --font-d:'Space Grotesk',ui-sans-serif,system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --font-b:'Inter',ui-sans-serif,system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --font-m:'JetBrains Mono',ui-monospace,'Cascadia Mono',Consolas,Menlo,monospace;
+  /*__TOKENS__*/
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-b);min-height:100vh;overflow-x:hidden}
+h1,h2,.dsp{font-family:var(--font-d);letter-spacing:-.01em}
+.mono{font-family:var(--font-m)}
+button{font-family:inherit;cursor:pointer}
+::selection{background:color-mix(in srgb,var(--accent) 40%,transparent)}
+:focus-visible{outline:2px solid var(--accent-2);outline-offset:2px;border-radius:8px}
+
+/* ============ OVERLAYS (canvas < content < chrome < overlays < modal) ============ */
+.aurora{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(60% 50% at 15% 10%, color-mix(in srgb,var(--accent) 16%,transparent), transparent 60%),
+    radial-gradient(50% 45% at 85% 90%, color-mix(in srgb,var(--accent-2) 12%,transparent), transparent 60%);
+  animation:breathe 9s ease-in-out infinite}
+@keyframes breathe{0%,100%{opacity:.7}50%{opacity:1}}
+.vignette{position:fixed;inset:0;z-index:60;pointer-events:none;
+  background:radial-gradient(130% 100% at 50% 50%,transparent 42%,rgba(0,0,0,.5) 100%)}
+.grain{position:fixed;inset:-120px;z-index:61;pointer-events:none;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:grain 1s steps(4) infinite}
+@keyframes grain{0%{transform:translate(0,0)}25%{transform:translate(-30px,22px)}50%{transform:translate(20px,-26px)}75%{transform:translate(-14px,-16px)}100%{transform:translate(0,0)}}
+
+/* ============ SHELL: HUD + DOCK + TOAST ============ */
+.hud{position:fixed;top:16px;left:16px;z-index:800;display:flex;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:12px;
+  font:600 10.5px/1 var(--font-m);letter-spacing:1.6px;text-transform:uppercase;color:var(--dim);
+  background:rgba(10,8,18,.55);border:1px solid var(--line);backdrop-filter:blur(10px)}
+.chip .dot{width:6px;height:6px;border-radius:50%;background:var(--accent-2);
+  box-shadow:0 0 10px var(--accent-2);animation:pulse 2.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.dock{position:fixed;bottom:0;left:0;right:0;z-index:800;height:var(--dock-h);display:flex;
+  align-items:center;justify-content:center;gap:6px;padding-bottom:env(safe-area-inset-bottom);
+  background:linear-gradient(0deg,var(--bg) 40%,transparent)}
+.dock-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 14px;
+  border:1px solid transparent; /* keeps the button's shape in forced colours */
+  border-radius:12px;color:var(--dim);background:none;transition:color .3s var(--ease),transform .3s var(--ease),box-shadow .3s var(--ease);min-width:56px}
+.dock-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+.dock-btn .lbl{font:600 9.5px/1 var(--font-m);letter-spacing:1.2px;text-transform:uppercase}
+.dock-btn:hover{color:var(--ink);transform:translateY(-2px)}
+.dock-btn.active{color:var(--ink);
+  box-shadow:inset 0 0 0 1px var(--line), 0 6px 22px color-mix(in srgb,var(--accent) 28%,transparent)}
+.dock-btn.active svg{filter:drop-shadow(0 0 8px color-mix(in srgb,var(--accent) 70%,transparent))}
+
+/* ============ ROUTES ============ */
+.route{display:none;position:relative;z-index:10;max-width:1060px;margin:0 auto;
+  padding:96px 24px calc(var(--dock-h) + 48px)}
+.route.on{display:block;animation:routeIn .55s var(--ease) both}
+@keyframes routeIn{from{opacity:0;transform:translateY(18px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+.hero{min-height:52vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:16px}
+.kicker{font:600 11px/1 var(--font-m);letter-spacing:3px;text-transform:uppercase;color:var(--dim)}
+h1{font-size:clamp(38px,6.5vw,76px);line-height:1.03}
+.sub{color:var(--dim);max-width:62ch;line-height:1.7}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:26px}
+.card{padding:22px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid var(--line);
+  backdrop-filter:blur(10px);transition:transform .4s var(--ease),box-shadow .4s var(--ease)}
+.card:hover{transform:translateY(-3px);
+  box-shadow:0 18px 44px rgba(0,0,0,.45), 0 0 0 1px color-mix(in srgb,var(--accent) 30%,transparent)}
+
+/* ============ TOAST ============ */
+#toast{position:fixed;bottom:calc(var(--dock-h) + 18px);left:50%;transform:translate(-50%,16px);
+  z-index:1000;padding:12px 20px;border-radius:12px;opacity:0;pointer-events:none;
+  font:500 13px/1.4 var(--font-b);background:rgba(20,16,32,.92);border:1px solid var(--line);
+  backdrop-filter:blur(12px);transition:opacity .35s var(--ease),transform .35s var(--ease)}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}
+/*__MODULES__*/
+</style>
+</head>
+<body>
+<div class="aurora" aria-hidden="true"></div>
+<header class="hud" aria-label="Status">
+  <span class="chip"><span class="dot" aria-hidden="true"></span><span id="hud-xp">XP 0</span></span>
+  <button class="chip" id="hud-sound" type="button" aria-pressed="true">Sound on</button>
+</header>
+
+<main>
+  <section class="route on" id="route-home">
+    <div class="hero">
+      <div class="kicker">GOAT-HTML rich</div>
+      <h1>Your title here</h1>
+      <p class="sub">Tokens, overlays, hash router, store, synthesised SFX, HUD and dock.
+      Build the engine (workflow phase 4) before the features.</p>
+    </div>
+  </section>
+  <section class="route" id="route-explore"><h2>Explore</h2><div class="card-grid" id="grid"></div></section>
+  <section class="route" id="route-cards"><h2>Cards</h2></section>
+  <section class="route" id="route-quiz"><h2>Quiz</h2></section>
+  <section class="route" id="route-progress"><h2>Progress</h2></section>
+</main>
+
+<nav class="dock" id="dock" aria-label="Main navigation"></nav>
+<div id="toast" role="status" aria-live="polite"></div>
+<div class="vignette" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<script>
+'use strict';
+/* ============ ROUTES: generated dock (architecture.md section 4) ============ */
+const ROUTES=[
+  ['home','Home','M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2z','Home'],
+  ['explore','Explore','M21 21l-4.35-4.35M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14z','Search'],
+  ['cards','Cards','M4 5h12v14H4zM8 3h12v14','Flashcards'],
+  ['quiz','Quiz','M12 2 15 8.5 22 9.3 17 14l1.2 7L12 17.8 5.8 21 7 14 2 9.3 9 8.5z','Quiz'],
+  ['progress','Progress','M12 2a10 10 0 1 0 10 10H12z','Progress']
+];
+/* ============ DATA CONTRACT: replace with real content ============ */
+/* DATA CONTRACT
+   { n:string  name | d:string  definition | cat:string  category } */
+const DB=[{n:'Sample item',d:'A placeholder proving the grid renders.',cat:'demo'},
+          {n:'Second item',d:'Cards come from DB; features are views over it.',cat:'demo'}];
+/* ============ STORE: versioned, try/catch from day one ============ */
+const KEY='goatstarter_v1';
+const store={data:{xp:0,sound:true,v:1},
+  load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.v===store.data.v)store.data=d}catch(e){}},
+  save(){try{localStorage.setItem(KEY,JSON.stringify(store.data))}catch(e){}}};
+store.load();
+/* ============ UTILS ============ */
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+const toast=(m,k='')=>{const t=$('#toast');t.textContent=m;t.className='show '+k;
+  clearTimeout(toast._t);toast._t=setTimeout(()=>t.className='',2200)};
+/* ============ SFX: synthesised, zero assets ============ */
+const SFX=(()=>{let ctx;const ensure=()=>{if(!ctx)try{ctx=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}
+  if(ctx&&ctx.state==='suspended')ctx.resume();return ctx};
+  const tone=(f,t=0,dur=.12,type='sine',vol=.06,slide=0)=>{if(!store.data.sound)return;const c=ensure();if(!c)return;
+    const o=c.createOscillator(),g=c.createGain();o.type=type;
+    o.frequency.setValueAtTime(f,c.currentTime+t);
+    if(slide)o.frequency.exponentialRampToValueAtTime(f*slide,c.currentTime+t+dur);
+    g.gain.setValueAtTime(vol,c.currentTime+t);
+    g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+t+dur);
+    o.connect(g).connect(c.destination);o.start(c.currentTime+t);o.stop(c.currentTime+t+dur+.02)};
+  return{ensure,click:()=>tone(520,0,.06,'triangle',.05),whoosh:()=>tone(220,0,.25,'sawtooth',.04,.4),
+         chime:()=>{tone(660,0,.18);tone(880,.09,.22)},error:()=>tone(180,0,.2,'square',.05)}})();
+/* ============ ROUTER ============ */
+function buildDock(){$('#dock').innerHTML=ROUTES.map(([id,label,path,tip])=>
+  `<button class="dock-btn" type="button" data-route="${id}" title="${tip}">
+   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg><span class="lbl">${label}</span></button>`).join('');
+  $$('.dock-btn').forEach(b=>b.addEventListener('click',()=>{location.hash=b.dataset.route;SFX.whoosh()}))}
+function render(){const r=(location.hash||'#home').slice(1);
+  const route=ROUTES.some(([id])=>id===r)?r:'home';
+  $$('.route').forEach(s=>s.classList.toggle('on',s.id==='route-'+route));
+  $$('.dock-btn').forEach(b=>{const on=b.dataset.route===route;b.classList.toggle('active',on);
+    if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  scrollTo({top:0,behavior:'instant'});
+  if(route==='explore')renderExplore(); if(route==='progress')renderProgress()}
+addEventListener('hashchange',render);
+/* ============ FEATURES: views over DB ============ */
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function renderExplore(){$('#grid').innerHTML=DB.map(e=>
+  `<div class="card"><h3>${esc(e.n)}</h3><p style="color:var(--dim);margin-top:6px">${esc(e.d)}</p></div>`).join('')}
+function renderProgress(){$('#hud-xp').textContent='XP '+store.data.xp}
+/* ============ INPUTS ============ */
+function showSound(){const b=$('#hud-sound');b.textContent='Sound '+(store.data.sound?'on':'off');
+  b.setAttribute('aria-pressed',String(!!store.data.sound))}
+$('#hud-sound').addEventListener('click',()=>{store.data.sound=!store.data.sound;store.save();showSound();SFX.click()});
+showSound();
+addEventListener('keydown',e=>{if(e.ctrlKey||e.altKey||e.metaKey||e.target.closest('input,textarea,select,[contenteditable]'))return;
+  const map={'1':'home','2':'explore','3':'cards','4':'quiz','5':'progress'};
+  if(map[e.key]){location.hash=map[e.key];SFX.whoosh()}});
+addEventListener('error',e=>{console.warn('caught:',e.message)});
+/* ============ BOOT ============ */
+buildDock();render();
+if(!store.data._welcomed){toast('Welcome: press 1 to 5 to move between screens');store.data._welcomed=true;store.save()}
+/*__ENGINE__*/
+/*__MODULES__*/
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>media bad</title>
+<style>@view-transition { navigation: auto; }</style></head><body><main>
+<video autoplay muted loop playsinline><source src="hero.mov" type='video/mp4; codecs="hvc1"'><track kind="captions" src="captions.vtt" srclang="en"></video>
+<canvas id="lottie"></canvas><canvas id="rive"></canvas>
+<script>
+const anim = new DotLottie({ canvas: document.getElementById('lottie'), src: 'data:application/json,{}' });
+const r = new rive.Rive({ src: 'a.riv', canvas: document.getElementById('rive') });
+const ctx = new AudioContext();
+function blip() { const o = ctx.createOscillator(); o.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.05); }
+setTimeout(() => blip(), 500);
+const kf = [{ opacity: 0 }, { opacity: 1 }];
+document.querySelector('main').animate(kf, 400);
+</script></main></body></html>

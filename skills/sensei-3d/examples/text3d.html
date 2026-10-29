@@ -1,0 +1,40 @@
+<!doctype html>
+<!--
+  text3d.html: crisp SDF text in a three.js scene with troika-three-text (MIT), fully offline: the font is a blob URL
+  of embedded TTF or WOFF bytes and the unicode fallback resolver is pointed at a dead URL so it never reaches its CDN.
+  ?f=ttf|woff picks the embedded font, ?w=0 turns the worker off, ?fa=1 sets a Persian line to SEE the shaping trap:
+  troika drew Persian letters in their isolated forms here (not joined). Persian or Arabic labels in 3D use
+  label-canvas.html (the browser shapes the text) or HTML text over the canvas.
+  Build: node ../scripts/build-vendor.mjs vendor entry-troika.js
+         node ../scripts/pack-data.mjs vendor/fontdata.js FONT ttf=YourFont.ttf woff=YourFont.woff
+  verified: Windows 10, Chrome 155 + SwiftShader, troika-three-text 0.52.5: TTF and WOFF with the worker, TTF without
+            it; WOFF2 fails with "woff2 fonts not supported" (3D lane, rerun here); gate3d.mjs --static passed (ttf, woff,
+            ttf without worker). Persian with a system Arial TTF (local test font, never shipped; its GSUB has init,
+            medi and fina): right-to-left order correct, letters NOT joined, "unsupported GPOS table" logged.
+  not verified: whether another font or troika version joins Persian; diacritics.
+  Adapted from code-3d/text3d.html in the HTML-Sensei build project's research notes (not shipped) (original code of this project).
+-->
+<meta charset="utf-8"><title>3D text offline</title>
+<style>html,body{margin:0;background:#050b12}canvas{display:block;width:100%;height:100vh}pre{position:fixed;top:0;left:0;margin:8px;color:#7f7;font:12px monospace}</style>
+<canvas id="c" role="img" aria-label="HOLOGRAM 3D, in glowing letters"></canvas><pre id="o"></pre>
+<script src="vendor/t-troika.js"></script><script src="vendor/fontdata.js"></script>
+<script>
+(async () => {
+const q = new URLSearchParams(location.search), fmt = q.get('f') || 'ttf', worker = q.get('w') !== '0';
+T.configureTextBuilder({ useWorker: worker, unicodeFontsURL: 'about:blank#' });   // never reach the CDN resolver
+const url = URL.createObjectURL(new Blob([Uint8Array.from(atob(FONT[fmt]), c => c.charCodeAt(0))], { type: 'font/' + fmt }));
+const canvas = document.getElementById('c');
+const r = new T.WebGLRenderer({ canvas, antialias: true }); r.setClearColor(0x050b12);
+const s = new T.Scene(), cam = new T.PerspectiveCamera(40, 2, .1, 50); cam.position.z = 5;
+const t = new T.Text();
+t.text = q.get('fa') ? 'سلام دنیا\nHOLOGRAM 3D' : 'HOLOGRAM 3D';
+t.font = url; t.fontSize = .8; t.textAlign = 'center'; t.anchorX = 'center'; t.anchorY = 'middle';
+t.color = 0x66e0ff; t.outlineWidth = .01; t.outlineColor = 0x0a3a55; t.rotation.y = .25; s.add(t);
+await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('sync timeout')), 8000); t.sync(() => { clearTimeout(to); res(); }); });
+function render() { const w = canvas.clientWidth, h = canvas.clientHeight; r.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); r.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); r.render(s, cam); }
+new ResizeObserver(render).observe(canvas); render();
+canvas.addEventListener('webglcontextlost', e => e.preventDefault());
+canvas.addEventListener('webglcontextrestored', () => { r.setClearColor(0x050b12); render(); });   // the clear colour does not survive a restore
+document.getElementById('o').textContent = `ok ${fmt} worker=${worker}`; window.__done = true;
+})().catch(e => { console.error('ERR ' + e.message); document.getElementById('o').textContent = 'ERR ' + e.message; window.__done = true; });
+</script>

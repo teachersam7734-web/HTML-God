@@ -1,0 +1,71 @@
+<!doctype html>
+<!--
+  hero-video.html: a background or hero loop done safely. Sources in order of preference (VP9 WebM first, H.264 MP4
+  last as the universal fallback; never HEVC alone), the poster as first paint, muted + playsinline + loop in the
+  markup (muted autoplay is allowed; the attribute must be in the markup), a visible Pause button (WCAG 2.2.2: anything
+  that moves for more than 5 s on its own needs one), the choice remembered, no autoplay under
+  prefers-reduced-motion (the poster stays), paused when off screen or the tab is hidden, and play() rejection (low
+  power mode, data saver) handled by leaving the poster.
+  Files beside it: hero.webm, hero.mp4, poster.webp (ffmpeg-recipes.mjs makes all three). For one offline file, put
+  the bytes in the page and set src to blob: URLs (references/video.md, "One file").
+  verified: Windows 10, Chrome 155 headless over strict file:// (test-video.mjs): plays muted without a gesture,
+            reduced motion stays paused on the poster, the button pauses and is remembered over a reload, a hidden tab
+            pauses it, no request outside file:.
+  not verified: Safari and iOS low-power mode (the rejection path was forced by script, not by a phone); Firefox.
+  Original code of this project.
+-->
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hero video</title>
+<style>
+  :root { --fg: #f4f6fb; --acc: #7cc4ff; color-scheme: dark; }
+  html, body { margin: 0; min-height: 100%; background: #0b0e14; color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+  .hero { position: relative; min-height: 70vh; display: grid; place-items: center; overflow: hidden; }
+  .hero video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .hero h1 { position: relative; font-size: clamp(2rem, 6vw, 4rem); margin: 0; text-shadow: 0 2px 18px #000c; }
+  .ctl { position: absolute; right: 16px; bottom: 16px; font: inherit; color: var(--fg); background: #0b0e14cc;
+         border: 1px solid var(--acc); border-radius: 8px; padding: 8px 14px; min-height: 40px; cursor: pointer; }
+  .ctl:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+  @media (forced-colors: active) { .ctl { border: 1px solid ButtonText; } }
+</style>
+<section class="hero">
+  <video id="v" autoplay muted loop playsinline preload="metadata" poster="poster.webp" disablepictureinpicture aria-hidden="true">
+    <source src="hero.webm" type='video/webm; codecs="vp9"'>
+    <source src="hero.mp4" type="video/mp4">
+  </video>
+  <h1>A calm moving title</h1>
+  <button class="ctl" id="pause" type="button" aria-pressed="false">Pause background video</button>
+</section>
+<script>
+(function () {
+  var v = document.getElementById('v'), btn = document.getElementById('pause');
+  var rm = matchMedia('(prefers-reduced-motion: reduce)');
+  var store = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                set: function (k, x) { try { localStorage.setItem(k, x); } catch (e) {} } };
+  var userPaused = store.get('hero-video-paused') === '1', choseMotion = false, onScreen = true;
+  if (rm.matches) { v.removeAttribute('autoplay'); v.preload = 'none'; v.pause(); }   // before it starts: poster only
+  function want() { return (!rm.matches || choseMotion) && !userPaused && !document.hidden && onScreen; }
+  function label() {
+    var paused = !((!rm.matches || choseMotion) && !userPaused);
+    btn.textContent = paused ? 'Play background video' : 'Pause background video';
+    btn.setAttribute('aria-pressed', String(paused));
+  }
+  function sync() {
+    if (want()) { var p = v.play(); if (p && p.catch) p.catch(function () { v.classList.add('is-static'); }); }   // rejected: the poster stays
+    else v.pause();
+    label();
+  }
+  btn.addEventListener('click', function () {
+    var paused = btn.getAttribute('aria-pressed') === 'true';
+    if (paused && rm.matches) choseMotion = true;   // an explicit Play overrides reduced motion for this visit
+    userPaused = !paused;
+    store.set('hero-video-paused', userPaused ? '1' : '0');
+    sync();
+  });
+  if (rm.addEventListener) rm.addEventListener('change', sync);
+  document.addEventListener('visibilitychange', sync);
+  if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { onScreen = es[0].isIntersecting; sync(); }).observe(v);
+  sync();
+})();
+</script>
+</html>

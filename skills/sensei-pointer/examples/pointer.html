@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pointer and cursor recipes</title>
+<!--
+  pointer.html: pointer effects on one input model (Pointer Events) and one rAF loop with frame-rate independent
+  smoothing (damp): custom cursor ring, magnetic button, spotlight reveal, tilt card, drag with inertia and a keyboard
+  path, cursor trail. Hover effects only for fine hover pointers; the ring hides while a touch or pen is in use on a
+  hybrid device and is never used under forced colours; reduced motion snaps the ring and turns off the magnet, tilt,
+  trail and inertia; the spotlight's reveal has a keyboard equivalent; the loop sleeps when nothing moves.
+  verified: Windows 10, Node 24, Chrome headless via playwright-core 1.62, swiftshader: ../scripts/test-pointer.mjs
+            (every assertion, in mouse, keyboard, reduced-motion, forced-colours, hybrid-touch and phone contexts);
+            sensei-verify's sensei-gate.mjs in strict file://.
+  not verified: real touch hardware and pens; frame rate on a target device; Firefox and Safari; device-orientation
+            tilt (needs iOS permission from a gesture); screen reader speech.
+  Origin: code-interaction/pointer.html in the HTML-Sensei build project's research notes (not shipped) (HTML-Sensei's own code, lane D2). Changed here: the
+          hybrid-device switch (lane trap 12), no custom cursor under forced colours, a keyboard equivalent for the
+          spotlight, Shift and Home on the puck with instructions, the loop sleeps when idle, the trail canvas is made
+          on first use (the gate flagged the empty canvas), the ring is placed on first sight, dt clamped at 0 (a
+          negative dt pushed the ring away), transparent borders for forced colours, contrast of the hint text, a
+          header, a responsive grid.
+-->
+<style>
+:root{--bg:#0e0f13;--fg:#f2efe8;--ac:#ffb454;--line:#5a5f70}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:18px/1.5 system-ui,sans-serif}
+h1{font-size:1.4rem;margin:0;padding:24px 24px 0}
+main{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:24px;padding:24px}
+.box{position:relative;border:1px solid var(--line);border-radius:16px;min-height:300px;display:grid;place-items:center;overflow:hidden}
+:focus-visible{outline:3px solid #6ee7b7;outline-offset:3px}
+.hint{position:absolute;inset:auto 0 10px;text-align:center;font-size:.8rem;margin:0;color:#c9c5bc}
+
+/* Custom cursor: ONLY for fine hover pointers, only once the script has made the ring (.has-cursor), and never while a
+   touch or pen is in use (.touching). The I-beam stays wherever people type. */
+.cursor{display:none}
+@media (hover:hover) and (pointer:fine){
+  html.has-cursor:not(.touching), html.has-cursor:not(.touching) a, html.has-cursor:not(.touching) button, html.has-cursor:not(.touching) [role=button]{cursor:none}
+  html.has-cursor input, html.has-cursor textarea, html.has-cursor select, html.has-cursor [contenteditable]{cursor:text}
+  html.has-cursor:not(.touching) .cursor{display:block;position:fixed;left:0;top:0;width:28px;height:28px;margin:-14px 0 0 -14px;border:2px solid var(--ac);border-radius:50%;pointer-events:none;z-index:99;will-change:transform;mix-blend-mode:difference}
+  html.has-cursor .cursor.hot{width:56px;height:56px;margin:-28px 0 0 -28px;background:#ffb45433}
+  .cursor{transition:width .2s,height .2s,margin .2s,background .2s}
+}
+
+/* Magnetic button */
+.mag{padding:18px 34px;border-radius:999px;border:2px solid transparent;background:var(--ac);color:#111;font:600 1rem system-ui;will-change:transform}
+
+/* Spotlight reveal: the mask follows --mx/--my, written on THIS element only (never :root). Keyboard focus reveals all. */
+.spot{--mx:-200px;--my:-200px;background:#14161c}
+.spot .hidden{position:absolute;inset:0;display:grid;place-items:center;font-size:2.4rem;color:var(--ac);
+  -webkit-mask:radial-gradient(circle 110px at var(--mx) var(--my),#000 0,#000 60%,transparent 100%);mask:radial-gradient(circle 110px at var(--mx) var(--my),#000 0,#000 60%,transparent 100%)}
+.spot:focus-visible .hidden{-webkit-mask:none;mask:none}
+.spot .base{color:#c9c5bc}
+
+/* Tilt card: perspective on the wrapper, preserve-3d on the card, transition only for the return home. */
+.tiltwrap{perspective:700px}
+.tilt{width:220px;height:280px;border-radius:18px;background:linear-gradient(135deg,#2b2f3d,#1a1c25);transform-style:preserve-3d;will-change:transform;display:grid;place-items:center;transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.tilt.live{transition:none}
+.tilt span{transform:translateZ(40px)}
+
+/* Drag with inertia: touch-action none on the handle only, never on the page. */
+.dragarea{position:relative}
+.puck{position:absolute;left:20px;top:20px;width:70px;height:70px;border-radius:50%;background:var(--ac);border:2px solid transparent;touch-action:none;cursor:grab;will-change:transform;user-select:none}
+.puck:active{cursor:grabbing}
+
+canvas#trail{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
+@media (prefers-reduced-motion:reduce){ .tilt,.cursor{transition:none} }
+</style>
+</head>
+<body>
+<div class="cursor" id="cursor" aria-hidden="true"></div>
+<header><h1>Pointer and cursor recipes</h1></header>
+<main>
+  <div class="box"><button class="mag" id="mag">Magnetic</button></div>
+  <div class="box spot" id="spot" tabindex="0" role="group" aria-label="Spotlight: focus to reveal"><div class="base">Hover or focus to reveal</div><div class="hidden">SECRET</div></div>
+  <div class="box tiltwrap"><div class="tilt" id="tilt"><span>Tilt</span></div></div>
+  <div class="box dragarea" id="drag"><div class="puck" id="puck" role="button" tabindex="0" aria-label="Puck" aria-describedby="puckHelp"></div>
+    <p class="hint" id="puckHelp">Drag or flick the puck. Arrow keys move it, Shift for bigger steps, Home to reset.</p></div>
+</main>
+<script>
+(function(){
+  'use strict';
+  var root = document.documentElement;
+  var reduceQ = matchMedia('(prefers-reduced-motion: reduce)');
+  // A custom cursor needs a fine hover pointer and must not replace the system cursor under forced colours.
+  var fine = matchMedia('(hover:hover) and (pointer:fine)').matches && !matchMedia('(forced-colors: active)').matches;
+  var reduce = reduceQ.matches;
+  reduceQ.addEventListener('change', function(e){ reduce = e.matches; wake(); });
+  var S = window.__state = {fine:fine, reduce:reduce, cursor:{x:-100,y:-100}, mag:{x:0,y:0}, tilt:{rx:0,ry:0}, puck:{x:20,y:20}, trailPts:0, running:false, frames:0};
+
+  /* ---- Frame-rate independent smoothing: 1 - exp(-lambda*dt). Same feel at 30, 60, 144 Hz. */
+  function damp(cur, target, lambda, dt){ return cur + (target-cur)*(1-Math.exp(-lambda*dt)); }
+
+  /* ---- Shared pointer position (client coords). Pointer events cover mouse, pen and touch. A touch or pen hides the
+     ring and gives the system cursor back (hybrid laptops report hover:hover and pointer:fine too). */
+  var px=-100, py=-100, seen=false;
+  function track(e){
+    var touchy = e.pointerType === 'touch' || e.pointerType === 'pen';
+    root.classList.toggle('touching', touchy);
+    if (!touchy) { px=e.clientX; py=e.clientY; if (!seen) { cx=px; cy=py; } seen=true; }   // first sight: place the ring, do not fly it in from off-screen
+    wake();
+  }
+  addEventListener('pointermove', track, {passive:true});
+  addEventListener('pointerdown', track, {passive:true});
+
+  /* ---- 1. Custom cursor: created first, class added after, so a failed script never hides the real cursor. */
+  var cur = document.getElementById('cursor'), cx=-100, cy=-100;
+  if (fine) root.classList.add('has-cursor');
+  document.addEventListener('pointerover', function(e){
+    if (!fine) return;
+    var hot = e.target.closest && e.target.closest('a,button,[role=button]');
+    cur.classList.toggle('hot', !!hot);
+  });
+
+  /* ---- 2. Magnetic button: pull toward the pointer inside a radius, measured from the UN-offset centre. */
+  var mag = document.getElementById('mag'), mx=0,my=0,mtx=0,mty=0;
+  function magUpdate(){
+    if (!fine || reduce || root.classList.contains('touching')) { mtx=mty=0; return; }
+    var r = mag.getBoundingClientRect(), bx=r.left+r.width/2-mx, by=r.top+r.height/2-my;
+    var dx = px-bx, dy = py-by, dist = Math.hypot(dx,dy), R = 110;
+    if (seen && dist < R){ mtx = dx*0.35; mty = dy*0.35; } else { mtx=0; mty=0; }
+  }
+
+  /* ---- 3. Spotlight: CSS variables on the box only, only when the rounded value changes. One-to-one with the
+     user's own movement, so it stays on under reduced motion. */
+  var spot = document.getElementById('spot'), lx=-1, ly=-1;
+  spot.addEventListener('pointermove', function(e){
+    var r = spot.getBoundingClientRect(), x=Math.round(e.clientX-r.left), y=Math.round(e.clientY-r.top);
+    if (x!==lx){ spot.style.setProperty('--mx', x+'px'); lx=x; }
+    if (y!==ly){ spot.style.setProperty('--my', y+'px'); ly=y; }
+  });
+  function spotOff(){ spot.style.setProperty('--mx','-200px'); spot.style.setProperty('--my','-200px'); lx=ly=-1; }
+  spot.addEventListener('pointerleave', spotOff); spot.addEventListener('pointercancel', spotOff);
+
+  /* ---- 4. Tilt: target angles from the pointer position inside the card (max 9 degrees), eased in the loop. */
+  var tilt = document.getElementById('tilt'), trx=0, try_=0, rx=0, ry=0, tiltOn=false;
+  tilt.addEventListener('pointerenter', function(e){ if(fine&&!reduce&&e.pointerType==='mouse'){ tiltOn=true; tilt.classList.add('live'); } });
+  tilt.addEventListener('pointermove', function(e){
+    if(!tiltOn) return;
+    var r = tilt.getBoundingClientRect(), nx=(e.clientX-r.left)/r.width-0.5, ny=(e.clientY-r.top)/r.height-0.5;
+    try_ = nx*18; trx = -ny*18;
+  });
+  tilt.addEventListener('pointerleave', function(){ tiltOn=false; trx=try_=0; tilt.classList.remove('live'); wake(); });
+
+  /* ---- 5. Drag with inertia: pointer capture, velocity from the last samples (ignored after an 80 ms pause),
+     frame-rate independent friction, bounce at the bounds, and a keyboard path. */
+  var puck = document.getElementById('puck'), area = document.getElementById('drag');
+  var pxp=20, pyp=20, vx=0, vy=0, dragging=false, ox=0, oy=0, samples=[];
+  function bounds(){ return {w:area.clientWidth-puck.offsetWidth, h:area.clientHeight-puck.offsetHeight}; }
+  puck.addEventListener('pointerdown', function(e){
+    dragging=true; puck.setPointerCapture(e.pointerId); vx=vy=0; samples=[];
+    ox=e.clientX-pxp; oy=e.clientY-pyp; e.preventDefault(); wake();
+  });
+  puck.addEventListener('pointermove', function(e){
+    if(!dragging) return;
+    var b=bounds(); pxp=Math.max(0,Math.min(b.w,e.clientX-ox)); pyp=Math.max(0,Math.min(b.h,e.clientY-oy));
+    samples.push({t:performance.now(),x:pxp,y:pyp}); if(samples.length>6) samples.shift(); wake();
+  });
+  function release(){
+    if(!dragging) return; dragging=false;
+    var a=samples[0], z=samples[samples.length-1];
+    if(a&&z&&z.t-a.t>0 && performance.now()-z.t<80){ vx=(z.x-a.x)/(z.t-a.t)*1000; vy=(z.y-a.y)/(z.t-a.t)*1000; }
+    if(reduce){ vx=vy=0; }
+    wake();
+  }
+  puck.addEventListener('pointerup', release); puck.addEventListener('pointercancel', release);
+  puck.addEventListener('keydown', function(e){
+    if(e.altKey||e.ctrlKey||e.metaKey) return;
+    var step = e.shiftKey ? 60 : 20;
+    var d={ArrowLeft:[-step,0],ArrowRight:[step,0],ArrowUp:[0,-step],ArrowDown:[0,step]}[e.key];
+    var b=bounds();
+    if(e.key==='Home'){ pxp=20; pyp=20; vx=vy=0; }
+    else if(d){ pxp=Math.max(0,Math.min(b.w,pxp+d[0])); pyp=Math.max(0,Math.min(b.h,pyp+d[1])); vx=vy=0; }
+    else return;
+    e.preventDefault(); wake();
+  });
+
+  /* ---- 6. Trail on a canvas: fine mouse pointers with motion allowed only; DPR capped at 2. */
+  // The full-viewport canvas is made on the first mouse movement that can use it: phones, reduced motion and forced
+  // colours never get one, and no blank canvas sits on the page before anyone moves.
+  var cv=null, g=null, pts=[];
+  function size(){ var d=Math.min(devicePixelRatio||1,2); cv.width=innerWidth*d; cv.height=innerHeight*d; g.setTransform(d,0,0,d,0,0); }
+  function ensureTrail(){ if(cv) return true; cv=document.createElement('canvas'); cv.id='trail'; cv.setAttribute('aria-hidden','true');
+    document.body.appendChild(cv); g=cv.getContext('2d'); size(); addEventListener('resize', size); return true; }
+  var lastPx=-1,lastPy=-1;
+
+  /* ---- One rAF loop for everything. dt clamped to [0, 50 ms] so a resumed tab does not teleport things. It sleeps when every
+     value has settled and wakes on input, so an idle page costs nothing. */
+  var last=0, raf=0;
+  function wake(){ if(!raf){ last=performance.now()-16.7; raf=requestAnimationFrame(frame); S.running=true; } }
+  function frame(now){
+    raf=0; S.frames++;
+    // Clamp both ways: a rAF timestamp is the frame's start and can be EARLIER than the performance.now() taken by
+    // wake() in an input event; a negative dt makes damp() push values the wrong way.
+    var dt=Math.max(0, Math.min((now-last)/1000, 0.05)); last=now;
+    var moving=false;
+    if(fine){ cx = reduce ? px : damp(cx,px,22,dt); cy = reduce ? py : damp(cy,py,22,dt);
+      cur.style.transform='translate3d('+cx.toFixed(1)+'px,'+cy.toFixed(1)+'px,0)'; S.cursor.x=cx; S.cursor.y=cy;
+      moving = moving || Math.abs(cx-px)>0.1 || Math.abs(cy-py)>0.1; }
+    magUpdate(); mx=damp(mx,mtx,reduce?1000:14,dt); my=damp(my,mty,reduce?1000:14,dt);
+    if(Math.abs(mx-mtx)<0.01&&Math.abs(my-mty)<0.01){ mx=mtx; my=mty; } else moving=true;
+    mag.style.transform = (mx||my) ? 'translate3d('+mx.toFixed(2)+'px,'+my.toFixed(2)+'px,0)' : '';
+    S.mag.x=mx; S.mag.y=my; if(mtx||mty) moving=true;
+    rx=damp(rx,trx,12,dt); ry=damp(ry,try_,12,dt);
+    if(Math.abs(rx-trx)<0.01&&Math.abs(ry-try_)<0.01){ rx=trx; ry=try_; } else moving=true;
+    tilt.style.transform = (rx||ry) ? 'rotateX('+rx.toFixed(2)+'deg) rotateY('+ry.toFixed(2)+'deg)' : '';
+    S.tilt.rx=rx; S.tilt.ry=ry; if(tiltOn) moving=true;
+    if(!dragging && (Math.abs(vx)>5||Math.abs(vy)>5)){
+      var b=bounds(); pxp+=vx*dt; pyp+=vy*dt;
+      if(pxp<0){pxp=0;vx=-vx*0.5} if(pxp>b.w){pxp=b.w;vx=-vx*0.5}
+      if(pyp<0){pyp=0;vy=-vy*0.5} if(pyp>b.h){pyp=b.h;vy=-vy*0.5}
+      var f=Math.exp(-4*dt); vx*=f; vy*=f; moving=true;
+    } else if(!dragging){ vx=vy=0; }
+    if(dragging) moving=true;
+    puck.style.transform='translate3d('+(pxp-20).toFixed(1)+'px,'+(pyp-20).toFixed(1)+'px,0)'; S.puck.x=pxp; S.puck.y=pyp;
+    if(g) g.clearRect(0,0,innerWidth,innerHeight);
+    if(fine&&!reduce&&seen&&!root.classList.contains('touching')&&ensureTrail()){
+      if(px!==lastPx||py!==lastPy){ pts.push({x:px,y:py,a:1}); lastPx=px;lastPy=py; }
+      for(var i=pts.length-1;i>=0;i--){ var p=pts[i]; p.a-=dt*2.2; if(p.a<=0){pts.splice(i,1);continue}
+        g.globalAlpha=p.a*0.5; g.fillStyle='#ffb454'; g.beginPath(); g.arc(p.x,p.y,6*p.a,0,6.283); g.fill(); }
+      if(pts.length>80) pts.splice(0,pts.length-80);
+    } else pts.length=0;
+    S.trailPts=pts.length; S.reduce=reduce; if(pts.length) moving=true;
+    if(moving) raf=requestAnimationFrame(frame); else S.running=false;
+  }
+  wake();
+})();
+</script>
+</body>
+</html>

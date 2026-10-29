@@ -1,0 +1,13 @@
+<!doctype html>
+<!-- Fixture (QC finding 10): link tags that name pages rather than load them, a hyperlink, and a commented-out CDN script. Should lint clean offline. -->
+<html lang="en"><head><meta charset="utf-8"><title>Links</title>
+<link rel="canonical" href="https://school.example.com/">
+<link rel="alternate" hreflang="fa" href="https://school.example.com/fa/">
+<link rel="license" href="https://creativecommons.org/licenses/by/4.0/">
+<link rel="author me" href="https://people.example.com/">
+<!-- <script src="https://cdn.example.com/old.js"></script> -->
+</head><body><a href="https://example.org/">A link</a>
+<script>
+  // const old = fetch("https://api.example.com/old");
+  location.href = "https://example.org/next";
+</script></body></html>

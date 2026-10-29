@@ -1,0 +1,222 @@
+{
+  "skill_name": "html-router",
+  "common_interview_assertions": [
+    "No more than 10 questions in total, in at most 3 rounds; with AskUserQuestion, at most 4 questions per call and 2 to 4 options each, the recommended option first and marked (Recommended), no Other option",
+    "Every question is in plain words a newcomer understands and states its default as 'If you have no preference, I will ...'",
+    "Every technical but critical question is preceded by a two- or three-sentence plain explanation",
+    "Nothing the request already answered is asked again; those answers appear in the brief's decisions log with source: request",
+    "The interview passes `router.mjs brief --interview` before it is asked",
+    "No size budget is proposed unless the user asks for one; the default motion is cinematic"
+  ],
+  "common_routing_assertions": [
+    "`router.mjs detect` is run before routing and any missing subset is named to the user with what it costs",
+    ".sensei/brief.md passes `router.mjs brief`, and .sensei/profile.json is written through HTML-Sensei's profile.mjs (or directly when it is missing) with .sensei/licences.json started",
+    "A short plan is stated before building: what, with which parts, in what order (hardest slice first), how it will be verified",
+    "The final step is HTML-Sensei's verify.mjs on the deliverable in strict file:// with a fresh passing report before any claim of done",
+    "The final report lists what was built, what was verified and on what, and what was not verified"
+  ],
+  "evals": [
+    {
+      "id": 1,
+      "deliverable": "single-file page",
+      "prompt": "I want to build an HTML file for my grandmother's 90th birthday: a page the family can open that tells her life story with photos.",
+      "files": [],
+      "expected_output": "An interview of at most 10 plain questions that asks for the photos and story material and how to share them, offers named looks with 'show me three looks first' as the recommended option, and asks about sound with a plain explanation; then one offline file built with direction, typography, scroll, motion-ui and single-file, verified in strict file://.",
+      "interview_assertions": [
+        "Does not ask whether it should be one file (the request says an HTML file the family can open)",
+        "Asks for the photos and life-story text and explains how to share them (project folder, pasted text or links)",
+        "Offers a look question whose recommended option is to see three looks side by side first",
+        "Explains sound in plain words before asking whether music or sound should play",
+        "Asks at most 8 questions"
+      ],
+      "routing_assertions": [
+        "Profile deliverable is single-file and offline is true",
+        "Routes sensei-direction, sensei-typography, sensei-scroll, sensei-motion-ui, sensei-single-file and sensei-verify",
+        "Uses a GOAT HTML starter (starter-lite or starter-rich) as the shell or names why not",
+        "Every photo and font gets a ledger row"
+      ],
+      "must_route": ["sensei-direction", "sensei-scroll", "sensei-single-file", "sensei-verify"]
+    },
+    {
+      "id": 2,
+      "deliverable": "landing page",
+      "prompt": "I'm trying to make a landing page for my small pottery studio's new weekend workshops. I want people to sign up.",
+      "files": [],
+      "expected_output": "The interview in examples/interview-landing.md (8 questions in 2 rounds): materials, look, brand, delivery, how sign-ups reach the owner, a showpiece, proof, devices. Then a landing page built with the landing set plus a 3D hero and a form, gated in strict file://.",
+      "interview_assertions": [
+        "Does not ask what the page is for or whether it is commercial (a studio's sign-up page)",
+        "Explains that a page with no website behind it cannot send sign-ups by itself before asking how sign-ups should reach the owner",
+        "Explains one offline file versus a website before asking which",
+        "Explains 3D in plain words before offering a 3D showpiece",
+        "Offers to leave proof out rather than invent testimonials"
+      ],
+      "routing_assertions": [
+        "Routes the landing set: sensei-direction, sensei-tokens-theming, sensei-landing-hero, sensei-typography, sensei-motion-ui, sensei-scroll, sensei-pointer, sensei-verify",
+        "Routes sensei-ui-components (forms.md) for the sign-up form",
+        "Routes sensei-3d (or sensei-shaders-vfx) when a showpiece is chosen, with its still fallback",
+        "Uses GOAT HTML design.md for the overlay stack or names why not"
+      ],
+      "must_route": ["sensei-landing-hero", "sensei-ui-components", "sensei-direction", "sensei-verify"]
+    },
+    {
+      "id": 3,
+      "deliverable": "website",
+      "prompt": "Build me a website for my architecture practice: home, projects, about and contact. It should feel like a gallery.",
+      "files": [],
+      "expected_output": "A short interview (the pages and the look are already given) about project photos and text, brand, how often the content changes, the contact form's destination, and devices; then a multi-page site with cross-page transitions, verified with --mode both.",
+      "interview_assertions": [
+        "Does not ask which pages it needs (home, projects, about, contact are given)",
+        "Does not ask whether it is a website or a file (website is given)",
+        "Treats 'like a gallery' as a look already named and offers variants within it rather than unrelated looks",
+        "Explains what a hosted contact form needs before asking where messages should go"
+      ],
+      "routing_assertions": [
+        "Profile deliverable is site and offline is false",
+        "Routes sensei-transitions for cross-page morphs and sensei-landing-hero for the home page",
+        "The gate runs with --mode both",
+        "HTML-Master 01-art-direction is used for page families and responsive art direction"
+      ],
+      "must_route": ["sensei-transitions", "sensei-landing-hero", "sensei-ui-components", "sensei-verify"]
+    },
+    {
+      "id": 4,
+      "deliverable": "interactive course",
+      "prompt": "I want to create an interactive course about the basics of climate science for my Year 9 students, in English and Persian.",
+      "files": [],
+      "expected_output": "The interview in examples/interview-course.md (8 questions in 2 rounds), the brief in examples/brief-course.md, a profile with deliverable course, languages en and fa, rtl true, licence_mode personal; then the course built with the course set, Persian typography and a 3D Earth, verified in strict file://.",
+      "interview_assertions": [
+        "Does not ask the audience, the languages or whether it is commercial (all in the request)",
+        "Explains learning systems and SCORM in plain words before asking whether scores should go anywhere",
+        "Explains accessibility in plain words before asking about particular needs",
+        "Asks for teaching material first, with how to share it"
+      ],
+      "routing_assertions": [
+        "Profile has deliverable course, languages [\"en\",\"fa\"], rtl true, licence_mode personal",
+        "Routes sensei-courses, sensei-typography (Persian and RTL), sensei-single-file and sensei-verify",
+        "Dispatches sensei-course-builder and sensei-reviewer",
+        "Uses HTML-Master 05-learning-design for the coverage ledger and lesson outcomes"
+      ],
+      "must_route": ["sensei-courses", "sensei-typography", "sensei-course-builder", "05-learning-design.md", "sensei-verify"]
+    },
+    {
+      "id": 5,
+      "deliverable": "presentation",
+      "prompt": "Make a presentation on our company's Q3 results for the board meeting next Tuesday.",
+      "files": [],
+      "expected_output": "The interview in examples/interview-presentation.md (7 questions in 2 rounds): the figures, length, brand, look, presenter window and PDF, the screen, chart motion. Then a deck with presenter view and a PDF, charts built from the real figures, verified.",
+      "interview_assertions": [
+        "Does not ask whether it is presented live, the audience or the deadline (board meeting next Tuesday)",
+        "Explains the presenter window and PDF handout in plain words before asking",
+        "Says every chart is built from the real figures and none are invented",
+        "Asks where the board will see it and explains why that matters"
+      ],
+      "routing_assertions": [
+        "Profile deliverable is deck",
+        "Routes sensei-presentations, sensei-typography, sensei-transitions and sensei-verify",
+        "Routes sensei-dataviz for the charts",
+        "Dispatches sensei-deck-builder, or builds in the main session for a short deck and says so"
+      ],
+      "must_route": ["sensei-presentations", "sensei-dataviz", "sensei-verify"]
+    },
+    {
+      "id": 6,
+      "deliverable": "dashboard",
+      "prompt": "I need a dashboard for our charity's donations this year. I have a spreadsheet.",
+      "files": ["donations.csv"],
+      "expected_output": "A short interview that does not ask where the data comes from (a spreadsheet), asks which questions it should answer at a glance, explains a snapshot versus live data only if fresh data is wanted, and the look; then a dashboard with the data built in, a show-as-table switch, validated palettes, verified.",
+      "interview_assertions": [
+        "Does not ask whether there is data (the spreadsheet is given) and reads the file before asking",
+        "Asks which few questions the dashboard should answer at a glance",
+        "Explains a snapshot built into the file versus live data before asking about updates",
+        "Defaults motion to lively for a dashboard and explains why"
+      ],
+      "routing_assertions": [
+        "Profile deliverable is dashboard",
+        "Routes sensei-dataviz (palette-check, build-dash) and sensei-tokens-theming",
+        "Uses GOAT HTML dashboards-reports.md for KPI cards and the print stylesheet",
+        "Dispatches sensei-dataviz-engineer or builds in the main session and says so"
+      ],
+      "must_route": ["sensei-dataviz", "dashboards-reports.md", "sensei-verify"]
+    },
+    {
+      "id": 7,
+      "deliverable": "game",
+      "prompt": "Make a game where kids sort rubbish into the right recycling bins. It should work on the classroom tablets.",
+      "files": [],
+      "expected_output": "An interview that does not ask about devices (tablets) or the audience (kids), asks how a round works, the look, sound with a plain explanation, and saving progress; then a game with a fixed-timestep loop, touch input, pause and saves, sound with mute and captions, verified with a scripted play.",
+      "interview_assertions": [
+        "Does not ask which devices (classroom tablets) or who it is for (kids)",
+        "Asks how a round works: what the player does, how they win or lose",
+        "Explains sound in plain words and defaults it on with a mute button",
+        "Does not downgrade effects because the build machine is slow; asks about the tablets only if their age matters"
+      ],
+      "routing_assertions": [
+        "Profile deliverable is game, licence_mode personal",
+        "Routes sensei-games, sensei-audio, sensei-single-file and sensei-verify",
+        "Dispatches sensei-game-engineer and sensei-sound-designer",
+        "Uses GOAT HTML canvas-2d.md for hand-rolled effects (confetti, particles) or names why not"
+      ],
+      "must_route": ["sensei-games", "sensei-audio", "sensei-game-engineer", "sensei-verify"]
+    },
+    {
+      "id": 8,
+      "deliverable": "motion graphic",
+      "prompt": "I want a 20-second motion graphic introducing our new app, for Instagram.",
+      "files": [],
+      "expected_output": "An interview that does not ask the length or platform (20 seconds, Instagram, so tall), asks for the app's screens and brand, the look, whether music or sound is wanted, and explains an MP4 versus a playing page; then a storyboard, a seek page, a deterministic render to MP4 with a contact sheet, and the film gates.",
+      "interview_assertions": [
+        "Does not ask how long it is or where it will be shown (20 seconds, Instagram)",
+        "Explains a video file (MP4) versus a page that plays before asking, or takes MP4 as given for Instagram and logs it as inferred",
+        "Asks for the app's screens, logo and brand",
+        "Asks whether music or sound is wanted, with a plain explanation"
+      ],
+      "routing_assertions": [
+        "Profile deliverable is film",
+        "Routes sensei-motion-graphics, sensei-video-pipeline and sensei-audio",
+        "Dispatches sensei-motion-director and sensei-film-renderer",
+        "Done means an MP4 and a contact sheet on disk newer than the last edit"
+      ],
+      "must_route": ["sensei-motion-graphics", "sensei-video-pipeline", "sensei-film-renderer"]
+    },
+    {
+      "id": 9,
+      "deliverable": "tool",
+      "prompt": "Build me a single HTML file that converts recipe quantities between metric and imperial and scales them for more servings.",
+      "files": [],
+      "expected_output": "A short interview (delivery and purpose are given) about the inputs and outputs, remembering inputs or a share link, the look and languages; then a tool built around a pure transform with URL state and copy buttons, verified.",
+      "interview_assertions": [
+        "Does not ask whether it should be one file (single HTML file is given)",
+        "Asks at most 6 questions",
+        "Asks what goes in and what comes out only for what the request leaves open",
+        "Offers 'remember inputs and share a link' as the recommended option with a plain description"
+      ],
+      "routing_assertions": [
+        "Profile deliverable is single-file (or component) and offline is true",
+        "Uses GOAT HTML tools-games.md, which owns the tool genre",
+        "Routes sensei-ui-components, sensei-single-file and sensei-verify",
+        "Builds in the main session without dispatching agents and says why"
+      ],
+      "must_route": ["tools-games.md", "sensei-ui-components", "sensei-verify"]
+    },
+    {
+      "id": 10,
+      "deliverable": "landing page",
+      "prompt": "HTML Router: a landing page for my Persian calligraphy classes, in Persian and English. Only GOAT HTML is installed on this computer.",
+      "files": [],
+      "expected_output": "Detect reports HTML-Sensei and HTML-Master missing; the Router says what that costs (no hooks, no sensei gate, no HTML-Master asset library), still interviews without asking languages, writes the profile directly, builds from GOAT starters with Persian right-to-left typography, and verifies with verify_html.py plus a real browser in file://, naming the HTML-Sensei gate as not run.",
+      "interview_assertions": [
+        "Does not ask languages or whether right to left is needed (Persian and English given)",
+        "Explains nothing about installation in the interview; the missing subsets are reported separately",
+        "Still offers three looks first as the recommended look option",
+        "Asks at most 9 questions"
+      ],
+      "routing_assertions": [
+        "The user is told in one or two sentences that HTML-Sensei and HTML-Master are not installed and what that changes",
+        "Profile is written directly with rtl true and languages [\"fa\",\"en\"] or [\"en\",\"fa\"]",
+        "GOAT HTML starter and scripts/verify_html.py --strict --offline are used; the report says the HTML-Sensei gate did not run",
+        "Hooks are reported as not active"
+      ],
+      "must_route": ["starter-rich.html", "verify_html.py"]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+Anatomical surface adapted from Brain Project https://github.com/itayinbarr/brainproject
+© Z-Anatomy contributors and BodyParts3D / The Database Center for Life Science (DBCLS).
+Creative Commons Attribution-ShareAlike 4.0 International: https://creativecommons.org/licenses/by-sa/4.0/
+Changes: retain cortex, cerebellum, brainstem; bake transforms; normalise and merge geometry; artistic material applied at display time. This adapted geometry remains CC BY-SA 4.0.
+Brain Project's viewer code is Apache-2.0 and is not included; it does not relicense the model (upstream licence rechecked 27 October 2026).
+Course navigation points are artistic UI controls, not mapped neuroanatomical functions.

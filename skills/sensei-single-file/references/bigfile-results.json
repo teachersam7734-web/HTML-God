@@ -1,0 +1,446 @@
+{
+  "when": "2026-10-18T21:24:59.624Z",
+  "node": "v24.16.0",
+  "os": "win32 10.0.19044",
+  "ramGB": 16,
+  "results": [
+    {
+      "form": "textplain-head",
+      "mb": 50,
+      "fileMB": 52,
+      "loadMs": 356,
+      "paint": {
+        "fcp": -1,
+        "dcl": 339
+      },
+      "jsHeapMB": 10,
+      "memIdleBeforeMB": 382,
+      "memAfterLoadMB": 513,
+      "mem3sLaterMB": 524,
+      "mem3sLaterByType": {
+        "renderer": 273,
+        "browser": 120,
+        "GPU": 75,
+        "storage.mojom.StorageService": 19,
+        "network.mojom.NetworkService": 37
+      },
+      "decode": {
+        "textLen": 54525952,
+        "readTextContentMs": 6,
+        "fetchDataUrl": {
+          "ms": 738,
+          "bytes": 40894464
+        },
+        "atobLoop": {
+          "ms": 174,
+          "bytes": 40894464
+        },
+        "fromBase64": {
+          "ms": 53,
+          "bytes": 40894464
+        }
+      },
+      "errors": []
+    },
+    {
+      "form": "textplain-head",
+      "mb": 100,
+      "fileMB": 100,
+      "loadMs": 699,
+      "paint": {
+        "fcp": -1,
+        "dcl": 672
+      },
+      "jsHeapMB": 10,
+      "memIdleBeforeMB": 383,
+      "memAfterLoadMB": 610,
+      "mem3sLaterMB": 621,
+      "mem3sLaterByType": {
+        "network.mojom.NetworkService": 37,
+        "storage.mojom.StorageService": 19,
+        "renderer": 369,
+        "browser": 120,
+        "GPU": 75
+      },
+      "decode": {
+        "textLen": 104857600,
+        "readTextContentMs": 11,
+        "fetchDataUrl": {
+          "ms": 1482,
+          "bytes": 78643200
+        },
+        "atobLoop": {
+          "ms": 374,
+          "bytes": 78643200
+        },
+        "fromBase64": {
+          "ms": 95,
+          "bytes": 78643200
+        }
+      },
+      "errors": []
+    },
+    {
+      "form": "textplain-head",
+      "mb": 200,
+      "fileMB": 200,
+      "loadMs": 1412,
+      "paint": {
+        "fcp": -1,
+        "dcl": 1364
+      },
+      "jsHeapMB": 10,
+      "memIdleBeforeMB": 387,
+      "memAfterLoadMB": 811,
+      "mem3sLaterMB": 821,
+      "mem3sLaterByType": {
+        "storage.mojom.StorageService": 19,
+        "renderer": 569,
+        "browser": 121,
+        "GPU": 75,
+        "network.mojom.NetworkService": 37
+      },
+      "decode": {
+        "textLen": 209715200,
+        "readTextContentMs": 22,
+        "fetchDataUrl": {
+          "ms": 3068,
+          "bytes": 157286400
+        },
+        "atobLoop": {
+          "ms": 572,
+          "bytes": 157286400
+        },
+        "fromBase64": {
+          "ms": 204,
+          "bytes": 157286400
+        }
+      },
+      "errors": []
+    },
+    {
+      "form": "textplain-end",
+      "mb": 50,
+      "fileMB": 52,
+      "loadMs": 380,
+      "paint": {
+        "fcp": 68,
+        "dcl": 364
+      },
+      "jsHeapMB": 10,
+      "memIdleBeforeMB": 388,
+      "memAfterLoadMB": 514,
+      "mem3sLaterMB": 526,
+      "mem3sLaterByType": {
+        "storage.mojom.StorageService": 19,
+        "browser": 121,
+        "renderer": 276,
+        "GPU": 74,
+        "network.mojom.NetworkService": 37
+      },
+      "decode": {
+        "textLen": 54525952,
+        "readTextContentMs": 6,
+        "fetchDataUrl": {
+          "ms": 822,
+          "bytes": 40894464
+        },
+        "atobLoop": {
+          "ms": 157,
+          "bytes": 40894464
+        },
+        "fromBase64": {
+          "ms": 50,
+          "bytes": 40894464
+        }
+      },
+      "errors": []
+    },
+    {
+      "form": "textplain-end",
+      "mb": 100,
+      "fileMB": 100,
+      "loadMs": 711,
+      "paint": {
+        "fcp": 68,
+        "dcl": 683
+      },
+      "jsHeapMB": 10,
+      "memIdleBeforeMB": 389,
+      "memAfterLoadMB": 615,
+      "mem3sLaterMB": 625,
+      "mem3sLaterByType": {
+        "GPU": 74,
+        "network.mojom.NetworkService": 37,
+        "renderer": 375,
+        "browser": 120,
+        "storage.mojom.StorageService": 19
+      },
+      "decode": {
+        "textLen": 104857600,
+        "readTextContentMs": 10,
+        "fetchDataUrl": {
+          "ms": 1374,
+          "bytes": 78643200
+        },
+        "atobLoop": {
+          "ms": 298,
+          "bytes": 78643200
+        },
+        "fromBase64": {
+          "ms": 77,
+          "bytes": 78643200
+        }
+      },
+      "errors": []
+    },
+    {
+      "form": "textplain-end",
+      "mb": 200,
+      "fileMB": 200,
+      "loadMs": 1427,
+      "paint": {
+        "fcp": 68,
+        "dcl": 1380
+      },
+      "jsHeapMB": 10,
+      "memIdleBeforeMB": 393,
+      "memAfterLoadMB": 816,
+      "mem3sLaterMB": 825,
+      "mem3sLaterByType": {
+        "renderer": 574,
+        "GPU": 75,
+        "network.mojom.NetworkService": 37,
+        "browser": 120,
+        "storage.mojom.StorageService": 19
+      },
+      "decode": {
+        "textLen": 209715200,
+        "readTextContentMs": 22,
+        "fetchDataUrl": {
+          "ms": 3246,
+          "bytes": 157286400
+        },
+        "atobLoop": {
+          "ms": 597,
+          "bytes": 157286400
+        },
+        "fromBase64": {
+          "ms": 178,
+          "bytes": 157286400
+        }
+      },
+      "errors": []
+    },
+    {
+      "form": "jsstring",
+      "mb": 50,
+      "fileMB": 52,
+      "loadMs": 1029,
+      "paint": {
+        "fcp": 76,
+        "dcl": 1014
+      },
+      "jsHeapMB": 111,
+      "memIdleBeforeMB": 392,
+      "memAfterLoadMB": 526,
+      "mem3sLaterMB": 536,
+      "mem3sLaterByType": {
+        "renderer": 286,
+        "GPU": 75,
+        "network.mojom.NetworkService": 36,
+        "browser": 120,
+        "storage.mojom.StorageService": 19
+      },
+      "stringLen": 54525952,
+      "errors": []
+    },
+    {
+      "form": "jsstring",
+      "mb": 100,
+      "fileMB": 100,
+      "loadMs": 3600,
+      "paint": {
+        "fcp": 68,
+        "dcl": 3566
+      },
+      "jsHeapMB": 202,
+      "memIdleBeforeMB": 388,
+      "memAfterLoadMB": 619,
+      "mem3sLaterMB": 629,
+      "mem3sLaterByType": {
+        "renderer": 376,
+        "storage.mojom.StorageService": 19,
+        "network.mojom.NetworkService": 37,
+        "browser": 120,
+        "GPU": 78
+      },
+      "stringLen": 104857600,
+      "errors": []
+    },
+    {
+      "form": "jsstring",
+      "mb": 200,
+      "fileMB": 200,
+      "loadMs": 10550,
+      "paint": {
+        "fcp": 92,
+        "dcl": 10494
+      },
+      "jsHeapMB": 415,
+      "memIdleBeforeMB": 384,
+      "memAfterLoadMB": 816,
+      "mem3sLaterMB": 826,
+      "mem3sLaterByType": {
+        "renderer": 575,
+        "network.mojom.NetworkService": 37,
+        "storage.mojom.StorageService": 19,
+        "GPU": 74,
+        "browser": 121
+      },
+      "stringLen": 209715200,
+      "errors": []
+    },
+    {
+      "form": "imgdata",
+      "mb": 50,
+      "fileMB": 50,
+      "loadMs": 1433,
+      "paint": {
+        "fcp": 68,
+        "dcl": 924
+      },
+      "jsHeapMB": 10,
+      "memIdleBeforeMB": 383,
+      "memAfterLoadMB": 521,
+      "mem3sLaterMB": 531,
+      "mem3sLaterByType": {
+        "browser": 121,
+        "GPU": 79,
+        "renderer": 275,
+        "storage.mojom.StorageService": 19,
+        "network.mojom.NetworkService": 37
+      },
+      "imgOk": {
+        "w": 3621,
+        "complete": true
+      },
+      "errors": []
+    },
+    {
+      "form": "imgdata",
+      "mb": 100,
+      "fileMB": 100,
+      "loadMs": 3030,
+      "paint": {
+        "fcp": 72,
+        "dcl": 1948
+      },
+      "jsHeapMB": 10,
+      "memIdleBeforeMB": 393,
+      "memAfterLoadMB": 631,
+      "mem3sLaterMB": 640,
+      "mem3sLaterByType": {
+        "GPU": 80,
+        "renderer": 385,
+        "storage.mojom.StorageService": 19,
+        "network.mojom.NetworkService": 37,
+        "browser": 120
+      },
+      "imgOk": {
+        "w": 5120,
+        "complete": true
+      },
+      "errors": []
+    },
+    {
+      "form": "imgdata",
+      "mb": 200,
+      "skipped": "noise PNG over 100 MB needs a decoded bitmap of ~267 MB x4"
+    },
+    {
+      "form": "audiodata",
+      "mb": 50,
+      "fileMB": 50,
+      "loadMs": 686,
+      "paint": {
+        "fcp": 64,
+        "dcl": 627
+      },
+      "jsHeapMB": 10,
+      "memIdleBeforeMB": 396,
+      "memAfterLoadMB": 539,
+      "mem3sLaterMB": 553,
+      "mem3sLaterByType": {
+        "renderer": 271,
+        "audio.mojom.AudioService": 23,
+        "GPU": 81,
+        "storage.mojom.StorageService": 19,
+        "network.mojom.NetworkService": 37,
+        "browser": 121
+      },
+      "audioOk": {
+        "readyState": 4,
+        "duration": 2457.6,
+        "error": null
+      },
+      "errors": []
+    },
+    {
+      "form": "audiodata",
+      "mb": 100,
+      "fileMB": 100,
+      "loadMs": 1235,
+      "paint": {
+        "fcp": 72,
+        "dcl": 1169
+      },
+      "jsHeapMB": 10,
+      "memIdleBeforeMB": 389,
+      "memAfterLoadMB": 624,
+      "mem3sLaterMB": 636,
+      "mem3sLaterByType": {
+        "GPU": 81,
+        "audio.mojom.AudioService": 23,
+        "renderer": 356,
+        "storage.mojom.StorageService": 19,
+        "browser": 120,
+        "network.mojom.NetworkService": 36
+      },
+      "audioOk": {
+        "readyState": 4,
+        "duration": 4915.2,
+        "error": null
+      },
+      "errors": []
+    },
+    {
+      "form": "audiodata",
+      "mb": 200,
+      "fileMB": 200,
+      "loadMs": 2552,
+      "paint": {
+        "fcp": 64,
+        "dcl": 2452
+      },
+      "jsHeapMB": 10,
+      "memIdleBeforeMB": 373,
+      "memAfterLoadMB": 802,
+      "mem3sLaterMB": 812,
+      "mem3sLaterByType": {
+        "GPU": 81,
+        "storage.mojom.StorageService": 19,
+        "network.mojom.NetworkService": 36,
+        "audio.mojom.AudioService": 23,
+        "renderer": 531,
+        "browser": 121
+      },
+      "audioOk": {
+        "readyState": 4,
+        "duration": 9830.4,
+        "error": null
+      },
+      "errors": []
+    }
+  ]
+}

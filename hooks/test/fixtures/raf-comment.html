@@ -1,0 +1,10 @@
+<!doctype html>
+<!-- Fixture (QC finding 4): a rAF loop whose only "guard" is a comment. Must warn. -->
+<html lang="en"><head><meta charset="utf-8"><title>Comment guard</title></head><body><canvas id="c"></canvas>
+<script>
+  // TODO: add reduced-motion later
+  /* prefersReducedMotion will be checked here */
+  const ctx = document.getElementById('c').getContext('2d');
+  const tick = t => { ctx.fillRect(t % 300, 60, 4, 4); requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+</script></body></html>

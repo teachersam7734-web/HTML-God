@@ -1,0 +1,186 @@
+<!doctype html>
+<!--
+  kinetic.html: kinetic type in English and Persian, every recipe of sensei-typography on one page. HTML-Sensei's own
+  code (rebuilt from the UI research lane's lab page). Uses ../scripts/splitkit.js, ../scripts/kinetickit.js and the
+  OFL font ../assets/vazirmatn-fa-latin.woff2 (licence: ../assets/OFL-Vazirmatn.txt). For a single offline file,
+  inline the two scripts and embed the font with ../scripts/fontembed.py (sensei-single-file packs the rest).
+
+  verified: Chrome 156 headless (Windows 10), strict file://: ../scripts/test-typography.mjs (splitting widths and
+            joining, accessibility copy, revert, scramble, marquee seam and pause button, wipe direction at mid-time,
+            text on path, fixed-box weight, fluid sizes, digits, monospace and drop-cap rules, reduced motion) and
+            sensei-verify's sensei-gate.mjs. The contact sheet was looked at: Persian joined in every split mode used.
+  not verified: Firefox and Safari (shaping across span boundaries, letter-spacing in Persian, textPath with bidi);
+            screen-reader speech; weight-animation frame cost on phones; kashida justification.
+-->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinetic type, English and Persian</title>
+<style>
+@font-face { font-family: "Vazirmatn"; src: url(../assets/vazirmatn-fa-latin.woff2) format("woff2"); font-weight: 100 900; font-display: block; }
+:root {
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --ground: #fbfaf7; --ink: #15131f; --soft: #4d4960; --accent: #4b2fd6; --line: #8f8a9f;
+  --fs-hero: clamp(2rem, 1.2rem + 3.6vw, 4.5rem);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 400 1.125rem/1.7 "Vazirmatn", system-ui, sans-serif; }
+main { max-inline-size: 72rem; margin-inline: auto; padding: 2rem 1.25rem 5rem; }
+h1 { font-size: var(--fs-hero); line-height: 1.15; margin: 0 0 .5rem; }
+h2 { font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); margin: 2.5rem 0 .75rem; }
+:lang(fa) { letter-spacing: 0; line-height: 1.75; }
+.big { font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.75rem); font-weight: 700; line-height: 1.35; margin: 0; }
+.big:lang(fa) { line-height: 1.55; }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: 1.25rem 2rem; }
+.btn { font: inherit; font-size: 1rem; min-block-size: 2.75rem; padding-inline: 1rem; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* 1. Split reveal: the real text once in the tree (.sk-sr), the moving copy aria-hidden; stagger from --i. */
+.sk-sr { position: absolute !important; inline-size: 1px; block-size: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.rv .sk-w, .rv .sk-c { display: inline-block; white-space: nowrap; opacity: 0; transform: translateY(.55em);
+  animation: sk-in .8s var(--ease) both; animation-delay: calc(var(--i) * 55ms); }
+.rv .sk-w.sk-wkeep { display: inline; opacity: 1; transform: none; animation: none; white-space: nowrap; }
+.rv .sk-c.sk-inl { display: inline; transform: none; animation-name: sk-fade; }   /* inline spans cannot move */
+@keyframes sk-in { from { opacity: 0; transform: translateY(.55em); } to { opacity: 1; transform: none; } }
+@keyframes sk-fade { from { opacity: 0; } to { opacity: 1; } }
+/* Gradient emphasis on split words: the gradient sits on each word, never on the parent. */
+.grad .sk-w { background: linear-gradient(90deg, #4b2fd6, #c2185b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* 3. Marquee: mechanics always left to right; items carry their own direction. Padding, not gap, between copies. */
+.mq { overflow: hidden; direction: ltr; mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.mq-track { display: flex; inline-size: max-content; animation: mq var(--d, 24s) linear infinite; }
+.mq ul { display: flex; margin: 0; padding: 0 2.5rem 0 0; list-style: none; gap: 2.5rem; flex: none; }
+.mq li { font-size: 2rem; font-weight: 800; white-space: nowrap; }
+.mq[data-rtl] ul { direction: rtl; }
+.mq:hover .mq-track, .mq:focus-within .mq-track, .mq.paused .mq-track { animation-play-state: paused; }
+@keyframes mq { to { transform: translateX(-50%); } }
+
+/* 5. Wipe: clip-path inset() has no logical keywords, so the hidden edge is swapped per direction. */
+.wipe { --from: inset(0 100% 0 0); display: inline-block; clip-path: var(--from); animation: wipe 1s var(--ease) .2s forwards; }
+[dir="rtl"] .wipe { --from: inset(0 0 0 100%); }
+@keyframes wipe { from { clip-path: var(--from); } to { clip-path: inset(0); } }
+
+/* 6. Variable weight in a box that never changes size: a hidden heaviest copy reserves the width. */
+.vw-fixed { display: inline-grid; font-size: 3rem; }
+.vw-fixed::after { content: attr(data-t); font-weight: 900; block-size: 0; visibility: hidden; overflow: hidden; grid-area: 1 / 1; }
+.vw-fixed > span { grid-area: 1 / 1; animation: vw 3s ease-in-out infinite alternate; }
+@keyframes vw { from { font-weight: 100; } to { font-weight: 900; } }
+
+/* 7. Text on a path. */
+svg { display: block; max-inline-size: 100%; block-size: auto; }
+svg text { font: 700 26px "Vazirmatn", sans-serif; fill: var(--ink); }
+
+/* 8. Digits and numbers. */
+.fa-digits { font-feature-settings: "ss01"; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* 9. Monospace with Persian: the Persian face after the mono faces, so Persian never falls into a fixed-pitch face. */
+.mono { font-family: ui-monospace, Consolas, "Vazirmatn", monospace; }
+/* 10. Drop caps are a Latin convention. */
+.essay p:lang(en)::first-letter { float: inline-start; font-size: 3.2em; line-height: .9; font-weight: 800; margin-inline-end: .08em; color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rv .sk-w, .rv .sk-c { animation: none; opacity: 1; transform: none; }
+  .mq-track { animation: none; flex-wrap: wrap; inline-size: auto; }
+  .mq ul[aria-hidden] { display: none; }
+  .wipe { animation: none; clip-path: none; }
+  .vw-fixed > span { animation: none; font-weight: 700; }
+}
+@media print { .rv .sk-w, .rv .sk-c { animation: none; opacity: 1; transform: none; } .wipe { animation: none; clip-path: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="hero">Type that moves, in two scripts</h1>
+  <p>Every recipe below keeps Persian letters joined, keeps one real copy of the text for assistive technology, and stops moving under reduced motion.</p>
+
+  <h2>1. Split reveal: words, Persian words, Persian letters with joiners, Persian letters as inline fades</h2>
+  <div class="row">
+    <p class="big rv grad" id="a1">Learn to read like a detective</p>
+    <p class="big rv" id="a2" lang="fa" dir="rtl">یادگیری خواندن مانند یک کارآگاه</p>
+    <p class="big rv" id="a3" lang="fa" dir="rtl">یادگیری خواندن کارآگاه</p>
+    <p class="big rv" id="a4" lang="fa" dir="rtl">یادگیری خواندن کارآگاه</p>
+  </div>
+
+  <h2>2. Scramble that resolves (a pure function of time, seeded)</h2>
+  <div class="row">
+    <p class="big" id="s1">DECODE THE PASSAGE</p>
+    <p class="big" id="s2" lang="fa" dir="rtl">رمزگشایی متن</p>
+  </div>
+  <p><button class="btn" id="replay" type="button">Replay the scramble</button></p>
+
+  <h2>3. Marquee with a pause control</h2>
+  <p><button class="btn" id="mq-toggle" type="button" aria-pressed="false">Pause the marquees</button></p>
+  <div class="mq" id="mq1"><div class="mq-track"><ul><li>Skim</li><li>Scan</li><li>Infer</li><li>Match</li></ul><ul aria-hidden="true"><li>Skim</li><li>Scan</li><li>Infer</li><li>Match</li></ul></div></div>
+  <div class="mq" id="mq2" data-rtl><div class="mq-track"><ul lang="fa"><li>مرور</li><li>اسکن</li><li>استنباط</li><li>تطبیق</li></ul><ul lang="fa" aria-hidden="true"><li>مرور</li><li>اسکن</li><li>استنباط</li><li>تطبیق</li></ul></div></div>
+
+  <h2>4. Wipe from the start of the line, in each direction</h2>
+  <div class="row">
+    <p class="big"><span class="wipe" id="w1">Revealed from the start</span></p>
+    <p class="big" dir="rtl" lang="fa"><span class="wipe" id="w2">از ابتدا آشکار می‌شود</span></p>
+  </div>
+
+  <h2>5. Variable weight in a fixed box</h2>
+  <p><span class="vw-fixed" id="vw2" data-t="کتابخانه" lang="fa" dir="rtl"><span>کتابخانه</span></span></p>
+
+  <h2>6. Text on a path: every path drawn left to right, centred</h2>
+  <svg viewBox="0 0 800 140" width="800" height="140" role="img" aria-labelledby="path-en"><title id="path-en">Curved English headline</title>
+    <defs><path id="arc" d="M20 120 C 220 0, 560 0, 780 120"/></defs>
+    <path d="M20 120 C 220 0, 560 0, 780 120" fill="none" stroke="#ddd"/>
+    <text id="tp-en"><textPath href="#arc" startOffset="50%" text-anchor="middle">Curved English headline</textPath></text></svg>
+  <svg viewBox="0 0 800 140" width="800" height="140" lang="fa" role="img" aria-labelledby="path-fa"><title id="path-fa">متن فارسی روی مسیر منحنی</title>
+    <path d="M20 120 C 220 0, 560 0, 780 120" fill="none" stroke="#ddd"/>
+    <text id="tp-fa"><textPath href="#arc" startOffset="50%" text-anchor="middle">متن فارسی روی مسیر منحنی</textPath></text></svg>
+
+  <h2>7. Digits</h2>
+  <div class="row" lang="fa" dir="rtl">
+    <p class="big" id="d1">سال 2026</p>
+    <p class="big fa-digits" id="d2">سال 2026</p>
+    <p class="big" id="d3">سال ۲۰۲۶ و <bdi lang="en">Chrome 156</bdi></p>
+  </div>
+  <p class="big tnum" id="d4">1,111.11 / 8,888.88</p>
+
+  <h2>8. Monospace and drop caps</h2>
+  <div class="row">
+    <p class="mono" id="m1" lang="fa" dir="rtl">کد: <bdi lang="en">const x = 1;</bdi> متن فارسی در قلم ثابت‌عرض</p>
+    <div class="essay"><p lang="en" id="dc-en">Reading is a habit before it is a skill, and habits are built one page at a time.</p>
+      <p lang="fa" dir="rtl" id="dc-fa">خواندن پیش از آنکه مهارت باشد، عادت است.</p></div>
+  </div>
+</main>
+<script src="../scripts/splitkit.js"></script>
+<script src="../scripts/kinetickit.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const sk = window.__sk = {
+    r1: splitText($('a1'), { by: 'words' }),
+    r2: splitText($('a2'), { by: 'words' }),
+    r3: splitText($('a3'), { by: 'chars', cursive: 'zwj' }),
+    r4: splitText($('a4'), { by: 'chars', cursive: 'inline' }),
+  };
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+
+  // Scramble: live on load and on demand; static under reduced motion (runScramble checks the preference).
+  const runs = [];
+  function scramble() {
+    runs.forEach(r => r.cancel()); runs.length = 0;
+    runs.push(kineticKit.runScramble($('s1'), { seed: 7 }));
+    runs.push(kineticKit.runScramble($('s2'), { seed: 7, charset: kineticKit.SETS.persian }));
+  }
+  $('replay').addEventListener('click', scramble);
+
+  // Marquee pause control (WCAG 2.2.2: moving content over five seconds needs one; hover alone is not enough).
+  $('mq-toggle').addEventListener('click', e => {
+    const paused = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+    e.currentTarget.setAttribute('aria-pressed', String(paused));
+    e.currentTarget.textContent = paused ? 'Play the marquees' : 'Pause the marquees';
+    document.querySelectorAll('.mq').forEach(m => m.classList.toggle('paused', paused));
+  });
+
+  // Measure only after the font is ready: widths, min-inline-size of the scramble, line splits.
+  document.fonts.ready.then(() => { if (!reduce.matches) scramble(); window.__done = true; });
+})();
+</script>
+</body>
+</html>

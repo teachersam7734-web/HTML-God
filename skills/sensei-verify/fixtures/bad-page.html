@@ -1,0 +1,25 @@
+<!-- bad-page.html: the fixture the gate must FAIL, for named reasons (no doctype, no lang, empty title, a CDN script, a broken image, a pointer-only div, a shapeless button, an unnamed button, a spinner that ignores reduced motion, a WebGL canvas that never draws, a 900px block, a console error, an uncaught exception, unguarded storage). Copied from code-engineering/fixtures in the HTML-Sensei build project's research notes (not shipped). verified: fails for each reason in ../scripts/test-gate.mjs (Chrome, Windows). not verified: other browsers. -->
+<html>
+<head><title></title>
+<script src="https://cdn.example.invalid/lib.js"></script>
+<style>.fake{cursor:pointer;width:80px;height:30px;background:#444}
+button.shapeless{border:0;box-shadow:0 0 6px #000;background:transparent;width:60px;height:30px}
+.bg{position:fixed;inset:0;z-index:-1;background:#223}
+@keyframes spin{to{transform:rotate(360deg)}}.spinner{width:40px;height:40px;background:#f60;animation:spin 2s linear infinite}</style></head>
+<body>
+<div class="bg"></div>
+<img src="missing.png">
+<div class="fake" onclick="alert(1)">click me</div>
+<button class="shapeless">Go</button>
+<button></button>
+<div class="spinner"></div>
+<canvas id="c" width="300" height="200"></canvas>
+<div style="width:900px;height:20px;background:#a00">wide block</div>
+<script>
+const gl=document.getElementById('c').getContext('webgl'); /* never draws: blank canvas */
+console.error('deliberate console error');
+setTimeout(()=>{ throw new Error('deliberate uncaught'); },200);
+try{localStorage.setItem('a','b')}catch(e){}
+localStorage.getItem('x');
+</script>
+</body></html>

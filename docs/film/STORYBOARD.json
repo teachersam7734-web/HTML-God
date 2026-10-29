@@ -1,0 +1,95 @@
+{
+  "duration": 60,
+  "fps": 30,
+  "lang": "en",
+  "beats": [
+    {
+      "t": 0,
+      "end": 6,
+      "beat": "The idea",
+      "text": "Every great build starts with an idea",
+      "buys": "Great HTML starts with intent",
+      "hookAt": 1,
+      "moves": "Metal facets assemble around one idea",
+      "still": false,
+      "carries": "The assembled core",
+      "cut": "carry"
+    },
+    {
+      "t": 6,
+      "end": 10,
+      "beat": "The name",
+      "text": "Meet HTML God",
+      "buys": "A name for this craft library",
+      "moves": "The camera orbits the core",
+      "still": true,
+      "carries": "The core enters the brief",
+      "cut": "carry"
+    },
+    {
+      "t": 10,
+      "end": 18,
+      "beat": "The brief",
+      "text": "A better brief A better beginning Your goal Your audience Your format",
+      "buys": "An interview turns intent into a useful brief",
+      "moves": "Three options orbit the core",
+      "still": false,
+      "carries": "Orbital option nodes become routing nodes",
+      "cut": "carry"
+    },
+    {
+      "t": 18,
+      "end": 23,
+      "beat": "The router",
+      "text": "HTML Router finds the right craft",
+      "buys": "Routing chooses relevant specialist skills",
+      "moves": "A 28-node spatial constellation opens",
+      "still": false,
+      "carries": "The routed node becomes a project surface",
+      "cut": "carry"
+    },
+    {
+      "t": 23,
+      "end": 35,
+      "beat": "The skill world",
+      "text": "28 shared skills Sites single-file HTML Courses decks Dashboards games 3D shaders motion",
+      "buys": "One library supports many HTML experiences",
+      "moves": "A floating perspective surface changes from site to course to chart to 3D",
+      "still": false,
+      "carries": "The 3D core splits into the two host paths",
+      "cut": "carry"
+    },
+    {
+      "t": 35,
+      "end": 42,
+      "beat": "Two tools",
+      "text": "Claude Code + Codex One shared skill library",
+      "buys": "The shared skills work in both hosts",
+      "moves": "Two cores converge into a common orbit",
+      "still": false,
+      "carries": "Core geometry becomes HTML modules",
+      "cut": "carry"
+    },
+    {
+      "t": 42,
+      "end": 53,
+      "beat": "Build and refine",
+      "text": "Build Inspect Refine HTML WebGL Motion Sound",
+      "buys": "The workflow assembles and checks an HTML experience",
+      "moves": "Twelve modules assemble in 3D perspective",
+      "still": false,
+      "carries": "The central HTML module becomes the final core",
+      "cut": "carry"
+    },
+    {
+      "t": 53,
+      "end": 60,
+      "beat": "The invitation",
+      "text": "HTML God From idea to extraordinary HTML github.com/teachersam7734-web/HTML-God",
+      "buys": "Go to the repository and begin",
+      "moves": "A slow dolly around the core continues to the final frame",
+      "still": false,
+      "hold": 1
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+<!doctype html>
+<!--
+  particles.html: 60,000 points (?n= overrides) moved by curl noise in the vertex shader as a pure function of
+  (position, seed, time): one draw call, no per-frame CPU work, no state, seekable. Seeds from an LCG over the index
+  (every load identical). Post stack: RenderPass, UnrealBloomPass (strength .5, radius .5, threshold .25), one custom
+  ShaderPass for chromatic aberration, grain and vignette together, OutputPass last (tone mapping and sRGB; without it
+  the output is dark and washed on current three). Gain per point .6, grain .025: values found by fixing a white-out.
+  Pause control (WCAG 2.2.2), pause when hidden, reduced motion one still, context restore redraws.
+  Build: node ../../sensei-3d/scripts/build-vendor.mjs vendor entry-post.js
+  verified: Windows 10, Chrome 155 + SwiftShader, three 0.186.1: gate3d.mjs passed.
+  not verified: frame rate at 60,000 points with bloom on any target GPU; half-resolution bloom's claimed speed-up.
+  Adapted from code-3d/particles.html in the HTML-Sensei build project's research notes (not shipped) (original code of this project).
+-->
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>particles+post</title>
+<style>html,body{margin:0;height:100%;background:#000}canvas{display:block;width:100%;height:100%}</style>
+<canvas id="c" aria-hidden="true"></canvas>
+<button id="pause" type="button" aria-pressed="false" style="position:fixed;left:16px;bottom:16px;font:15px system-ui;color:#dff;background:#06141ccc;border:1px solid #6cf;border-radius:8px;padding:8px 14px;min-height:40px">Pause motion</button>
+<script src="vendor/t-post.js"></script>
+<script>
+(() => {
+const { WebGLRenderer, Scene, PerspectiveCamera, ShaderMaterial, Points, BufferGeometry, Float32BufferAttribute, Vector2, AdditiveBlending, HalfFloatType,
+        EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, OutputPass } = T;
+const canvas=document.getElementById('c'), q=new URLSearchParams(location.search);
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const N = +(q.get('n')||60000);
+const renderer=new WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'});
+const scene=new Scene(), camera=new PerspectiveCamera(50,1,.1,100); camera.position.set(0,0,6);
+
+// --- particles: all motion lives in the vertex shader as a pure function of (seed, time). No CPU per-frame work, no state.
+const seed=new Float32Array(N*3), rnd=new Float32Array(N);
+for(let i=0;i<N;i++){ // deterministic LCG so every load/render is identical
+  const s=(i*1664525+1013904223)>>>0, a=(s%10007)/10007, b=((s>>>8)%10007)/10007, c=((s>>>16)%10007)/10007;
+  const th=a*6.2831853, ph=Math.acos(2*b-1), r=1.6*Math.cbrt(c);
+  seed.set([r*Math.sin(ph)*Math.cos(th), r*Math.sin(ph)*Math.sin(th), r*Math.cos(ph)], i*3); rnd[i]=c; }
+const geo=new BufferGeometry(); geo.setAttribute('position',new Float32BufferAttribute(seed,3)); geo.setAttribute('aRnd',new Float32BufferAttribute(rnd,1));
+const pm=new ShaderMaterial({ transparent:true, depthWrite:false, blending:AdditiveBlending,
+  uniforms:{uTime:{value:0},uPx:{value:1},uGain:{value:.6}},
+  vertexShader:`uniform float uTime,uPx; attribute float aRnd; varying float vA; varying vec3 vC;
+  vec3 hash3(vec3 p){ p=vec3(dot(p,vec3(127.1,311.7,74.7)),dot(p,vec3(269.5,183.3,246.1)),dot(p,vec3(113.5,271.9,124.6))); return -1.+2.*fract(sin(p)*43758.5453123); }
+  float gn(vec3 p){ vec3 i=floor(p),f=fract(p),u=f*f*(3.-2.*f);
+    return mix(mix(mix(dot(hash3(i),f),dot(hash3(i+vec3(1,0,0)),f-vec3(1,0,0)),u.x),mix(dot(hash3(i+vec3(0,1,0)),f-vec3(0,1,0)),dot(hash3(i+vec3(1,1,0)),f-vec3(1,1,0)),u.x),u.y),
+               mix(mix(dot(hash3(i+vec3(0,0,1)),f-vec3(0,0,1)),dot(hash3(i+vec3(1,0,1)),f-vec3(1,0,1)),u.x),mix(dot(hash3(i+vec3(0,1,1)),f-vec3(0,1,1)),dot(hash3(i+vec3(1,1,1)),f-vec3(1,1,1)),u.x),u.y),u.z); }
+  vec3 pot(vec3 p){ return vec3(gn(p), gn(p+vec3(31.4,17.1,5.3)), gn(p+vec3(11.2,43.7,29.9))); }
+  vec3 curl(vec3 p){ const float e=.1; vec3 dx=vec3(e,0,0),dy=vec3(0,e,0),dz=vec3(0,0,e);
+    vec3 px0=pot(p-dx),px1=pot(p+dx),py0=pot(p-dy),py1=pot(p+dy),pz0=pot(p-dz),pz1=pot(p+dz);
+    return vec3(py1.z-py0.z-pz1.y+pz0.y, pz1.x-pz0.x-px1.z+px0.z, px1.y-px0.y-py1.x+py0.x)/(2.*e); }   // divergence-free flow => swirls, no clumping
+  void main(){
+    vec3 p=position; float t=uTime*.25+aRnd*3.;
+    p+=curl(p*.7+t*.5)*.55;                              // advect by curl noise (analytic in time, not integrated)
+    vC=mix(vec3(.1,.5,1.),vec3(1.,.4,.8),smoothstep(-1.6,1.6,p.y)); vA=.35+.65*aRnd;
+    vec4 mv=modelViewMatrix*vec4(p,1.); gl_Position=projectionMatrix*mv;
+    gl_PointSize=uPx*(2.2+3.*aRnd)*(6./-mv.z); }`,
+  fragmentShader:`uniform float uGain; varying float vA; varying vec3 vC; void main(){ vec2 d=gl_PointCoord-.5; float r=length(d); if(r>.5) discard; float a=pow(1.-2.*r,1.6)*vA*uGain; gl_FragColor=vec4(vC*a,a); }`});
+scene.add(new Points(geo,pm));
+
+// --- post: bloom -> one custom pass (chromatic aberration + grain + vignette) -> OutputPass (tone map + sRGB)
+const composer=new EffectComposer(renderer); composer.setPixelRatio(1);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new Vector2(256,256),.5,.5,.25); composer.addPass(bloom);
+const fx=new ShaderPass({uniforms:{tDiffuse:{value:null},uTime:{value:0},uCA:{value:.0025},uGrain:{value:.025}},
+  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`uniform sampler2D tDiffuse;uniform float uTime,uCA,uGrain;varying vec2 vUv;
+  float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+  void main(){ vec2 c=vUv-.5; float r2=dot(c,c); vec2 o=c*uCA*(1.+r2*4.);
+    vec3 col=vec3(texture2D(tDiffuse,vUv+o).r,texture2D(tDiffuse,vUv).g,texture2D(tDiffuse,vUv-o).b);
+    col+=(h(vUv*1000.+fract(uTime)*91.)-.5)*uGrain; col*=1.-smoothstep(.25,.85,length(c))*.65; gl_FragColor=vec4(col,1.); }`}); composer.addPass(fx);
+composer.addPass(new OutputPass());
+
+function size(){ const w=canvas.clientWidth,h=canvas.clientHeight,d=Math.min(devicePixelRatio||1,2);
+  renderer.setPixelRatio(d); renderer.setSize(w,h,false); composer.setPixelRatio(d); composer.setSize(w,h); bloom.resolution.set(w/2,h/2); pm.uniforms.uPx.value=d; camera.aspect=w/h; camera.updateProjectionMatrix(); }
+new ResizeObserver(size).observe(canvas); size();
+function frame(t){ pm.uniforms.uTime.value=reduce?4:t; fx.uniforms.uTime.value=reduce?0:t; scene.rotation.y=reduce?.5:t*.1; composer.render(); }
+window.__seek=frame;
+const T0=q.get('t'), btn=document.getElementById('pause');
+let raf=0, t0=0, el=0, paused=false;
+const live=()=>T0===null&&!reduce&&!paused&&!document.hidden;
+function loop(n){ raf=requestAnimationFrame(loop); el=(n-t0)/1000; frame(el); }
+function sync(){ if(!live()&&raf){cancelAnimationFrame(raf);raf=0;} if(!raf) frame(T0!==null?+T0:(reduce?4:el)); if(live()&&!raf){t0=performance.now()-el*1000;raf=requestAnimationFrame(loop);}
+  btn.hidden=reduce||T0!==null; btn.textContent=paused?'Play motion':'Pause motion'; btn.setAttribute('aria-pressed',String(paused)); }
+btn.addEventListener('click',()=>{paused=!paused;sync();});
+document.addEventListener('visibilitychange',sync);
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();cancelAnimationFrame(raf);raf=0;});
+canvas.addEventListener('webglcontextrestored',sync);
+sync();
+window.__done=true;
+})();
+</script>

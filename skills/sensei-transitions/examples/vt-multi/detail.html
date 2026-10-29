@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en" data-depth="1">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Detail | Two-page transition</title>
+<!-- vt-multi/detail.html: the second page of the pair; see index.html for what it shows and what was verified. -->
+<style>
+@view-transition{navigation:auto}
+@media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
+body{margin:0;background:#0e0f13;color:#f2efe8;font:18px/1.5 system-ui,sans-serif}
+header{view-transition-name:site-header;background:#1b1d25;padding:12px 24px}
+header p{margin:0}
+main{padding:24px}
+:focus-visible{outline:3px solid #6ee7b7;outline-offset:3px}
+.hero{width:100%;height:320px;border-radius:14px;background:#ffb454;view-transition-name:hero}
+a{color:#ffb454}
+::view-transition-group(hero){animation-duration:.4s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
+:root:active-view-transition-type(back)::view-transition-old(root){animation:.3s ease both vt-out-right}
+:root:active-view-transition-type(back)::view-transition-new(root){animation:.3s ease both vt-in-left}
+@keyframes vt-out-right{to{opacity:0;translate:40px 0}}
+@keyframes vt-in-left{from{opacity:0;translate:-40px 0}}
+</style>
+<script>
+/* pageswap runs on the OLD page just before it goes; pagereveal on the NEW page before its first render. A type added
+   in pageswap does not reach the new page, so the direction is decided here, on arrival. Guarded: not every engine
+   fires these events or has the Navigation API. */
+(function(){
+  addEventListener('pageswap', function(e){
+    if (e.viewTransition) e.viewTransition.types.add('from-swap');
+    try { sessionStorage.setItem('pageswap-vt', e.viewTransition ? '1' : '0'); } catch (err) {}   // test hook, read by test-vt.mjs
+  });
+  addEventListener('pagereveal', function(e){
+    window.__reveal = { vt: !!e.viewTransition, types: [] };
+    if (!e.viewTransition) return;
+    var nav = window.navigation, traverse = !!(nav && nav.activation && nav.activation.navigationType === 'traverse');
+    var dir = (document.documentElement.getAttribute('data-depth') === '0' || traverse) ? 'back' : 'forward';
+    e.viewTransition.types.add(dir);
+    window.__reveal.types = Array.from(e.viewTransition.types);
+    e.viewTransition.finished.then(function(){ window.__reveal.finished = true; }, function(){ window.__reveal.finished = 'aborted'; });
+  });
+})();
+</script>
+</head>
+<body>
+<header><p>Site header (persistent: its own transition name)</p></header>
+<main>
+<h1>Detail</h1>
+<div class="hero" role="img" aria-label="Hero image placeholder"></div>
+<p><a href="index.html" id="back">Back to the index</a></p>
+</main>
+</body>
+</html>

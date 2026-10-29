@@ -1,0 +1,286 @@
+<!doctype html>
+<!--
+  components.html: native-first component sheet for HTML-Sensei (sensei-ui-components). HTML-Sensei's own code.
+  Popover menu placed by CSS anchor positioning (with a fallback), modal dialog opened by an invoker command (with a
+  script fallback), tooltip as a hint popover opened by interest, exclusive accordion with an animated
+  ::details-content, roving-tabindex tabs that follow the writing direction, a toast in a live region, a styleable
+  select. One file, no library, no network. Reduced motion, forced colours, RTL and keyboard are built in.
+
+  verified: Chrome 156 headless (Windows 10, software GL), strict file://: scripts/test-components.mjs (every
+            behaviour below, LTR and RTL) and sensei-verify's sensei-gate.mjs with examples/components.steps.json.
+  not verified: Firefox, Safari, phones, screen-reader speech; the script fallbacks for invoker commands and
+            interestfor (Chrome 156 has both, so only the native path ran); the anchor-positioning fallback branch.
+-->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Native components</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --ground: light-dark(#f7f6f3, #15161a);
+  --surface: light-dark(#ffffff, #202228);
+  --ink: light-dark(#1b1c20, #ecebe7);
+  --ink-soft: light-dark(#4a4c55, #b5b4ae);
+  --line: light-dark(#8a8c96, #6c6e78);
+  --accent: light-dark(#3a3fd1, #9ea3ff);
+  --on-accent: light-dark(#ffffff, #10112a);
+  --ring: light-dark(#1d22b0, #c9cbff);
+  --radius: 12px;
+  --dur: 220ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  interpolate-size: allow-keywords;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: auto; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 1rem/1.6 system-ui, "Segoe UI", sans-serif; }
+main { max-inline-size: 46rem; margin-inline: auto; padding: 2rem 1rem 6rem; }
+h1 { font-size: 1.9rem; line-height: 1.2; margin-block: 0 .25rem; text-wrap: balance; }
+h2 { font-size: 1.15rem; margin-block: 2.25rem .6rem; }
+p { margin-block: 0 .75rem; color: var(--ink-soft); }
+section { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.25rem; }
+
+/* Controls: a real border on every control, so forced-colours mode keeps each edge. */
+button, select { font: inherit; color: inherit; }
+.btn { min-block-size: 2.75rem; padding-inline: 1rem; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--surface); cursor: pointer; }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+.row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+
+/* 1. Popover menu, placed with anchor positioning. position-area uses logical keywords, so it follows dir. */
+#menu-btn { anchor-name: --menu; }
+#menu { position-anchor: --menu; position-area: block-end span-inline-end; position-try-fallbacks: flip-block, flip-inline;
+  margin: 6px 0 0; padding: .35rem; min-inline-size: 12rem; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); color: var(--ink); box-shadow: 0 12px 32px rgb(0 0 0 / .18);
+  opacity: 1; translate: 0 0;
+  transition: opacity var(--dur) var(--ease-out), translate var(--dur) var(--ease-out),
+              display var(--dur) allow-discrete, overlay var(--dur) allow-discrete; }
+#menu:not(:popover-open) { opacity: 0; translate: 0 -4px; }
+@starting-style { #menu:popover-open { opacity: 0; translate: 0 -4px; } }
+#menu [role="menuitem"] { display: block; inline-size: 100%; text-align: start; padding: .55rem .75rem; min-block-size: 2.5rem;
+  border: 1px solid transparent; border-radius: 8px; background: none; cursor: pointer; }
+#menu [role="menuitem"]:hover, #menu [role="menuitem"]:focus-visible { background: color-mix(in oklab, var(--accent) 14%, transparent); }
+/* Fallback where anchor positioning is missing: a popover is centred by the UA, so pin it under the button instead. */
+@supports not (anchor-name: --a) {
+  #menu { position: fixed; inset: auto; top: var(--menu-top, 4rem); left: var(--menu-left, 1rem); }
+}
+
+/* 2. Modal dialog. */
+dialog { border: 1px solid var(--line); border-radius: 16px; padding: 1.25rem 1.5rem; background: var(--surface); color: var(--ink);
+  max-inline-size: min(28rem, calc(100vw - 2rem));
+  opacity: 1; scale: 1;
+  transition: opacity var(--dur) var(--ease-out), scale var(--dur) var(--ease-out),
+              display var(--dur) allow-discrete, overlay var(--dur) allow-discrete; }
+dialog:not([open]) { opacity: 0; scale: .97; }
+@starting-style { dialog[open] { opacity: 0; scale: .97; } }
+dialog::backdrop { background: rgb(0 0 0 / .45); }
+dialog h3 { margin-block: 0 .5rem; }
+
+/* 3. Tooltip: a hint popover, anchored to whatever opened it. */
+#tip { position-area: block-start; margin: 0 0 6px; padding: .35rem .6rem; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--ink); color: var(--ground); font-size: .875rem; }
+
+/* 4. Exclusive accordion: details with the same name; the content box animates its block size. */
+details { border-block-end: 1px solid var(--line); }
+details:first-of-type { border-block-start: 1px solid var(--line); }
+summary { cursor: pointer; padding: .75rem .25rem; min-block-size: 2.75rem; font-weight: 600; }
+details::details-content { block-size: 0; overflow: clip;
+  transition: block-size var(--dur) var(--ease-out), content-visibility var(--dur) allow-discrete; }
+details[open]::details-content { block-size: auto; }
+details p { padding-inline: .25rem; }
+
+/* 5. Tabs. */
+[role="tablist"] { display: flex; gap: .25rem; border-block-end: 1px solid var(--line); }
+[role="tab"] { min-block-size: 2.75rem; padding-inline: 1rem; border: 1px solid transparent; border-block-end: 0;
+  border-radius: 10px 10px 0 0; background: none; cursor: pointer; }
+[role="tab"][aria-selected="true"] { border-color: var(--line); background: var(--surface); color: var(--accent); font-weight: 600;
+  margin-block-end: -1px; border-block-end: 1px solid var(--surface); }
+[role="tabpanel"] { padding: 1rem .25rem 0; }
+
+/* 6. Toast: the live region exists from the start; only its text changes. */
+#toast { position: fixed; inset-block-end: 1rem; inset-inline-end: 1rem; max-inline-size: min(22rem, calc(100vw - 2rem));
+  padding: .75rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--ink); color: var(--ground);
+  opacity: 0; translate: 0 8px; pointer-events: none;
+  transition: opacity var(--dur) var(--ease-out), translate var(--dur) var(--ease-out); }
+#toast.on { opacity: 1; translate: 0 0; }
+
+/* 7. Styleable select, only where the browser supports it; elsewhere the native control stays. */
+select { min-block-size: 2.75rem; padding-inline: .75rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+@supports (appearance: base-select) {
+  select, ::picker(select) { appearance: base-select; }
+  ::picker(select) { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: .25rem; }
+  select option { padding: .45rem .7rem; border-radius: 8px; }
+  select option:checked { background: color-mix(in oklab, var(--accent) 16%, transparent); }
+}
+
+/* Reduced motion: keep the state changes, drop the movement and the size animation. */
+@media (prefers-reduced-motion: reduce) {
+  #menu, dialog, #toast { transition: opacity 1ms, display 1ms allow-discrete, overlay 1ms allow-discrete; translate: none; scale: none; }
+  #menu:not(:popover-open) { translate: none; }
+  details::details-content { transition: none; }
+}
+/* Forced colours: system colours for the states that colour alone carried. */
+@media (forced-colors: active) {
+  [role="tab"][aria-selected="true"] { border-color: Highlight; color: Highlight; }
+  #menu [role="menuitem"]:focus-visible { outline: 2px solid Highlight; }
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>Native components</h1>
+  <p>Menus, dialogs, tooltips, accordions, tabs, toasts and selects with no library. Switch the writing direction to see
+    every placement follow it.</p>
+  <div class="row"><button class="btn" id="dir-btn" type="button" aria-pressed="false">Right to left</button></div>
+
+  <h2 id="h-menu">Menu (popover and anchor positioning)</h2>
+  <section aria-labelledby="h-menu">
+    <div class="row">
+      <button class="btn" id="menu-btn" type="button" popovertarget="menu" aria-haspopup="menu">Actions</button>
+      <button class="btn" id="tip-btn" type="button" interestfor="tip" aria-describedby="tip">Shortcut help</button>
+    </div>
+    <div id="menu" popover role="menu" aria-labelledby="menu-btn">
+      <button role="menuitem" type="button" data-say="Duplicated">Duplicate</button>
+      <button role="menuitem" type="button" data-say="Archived">Archive</button>
+      <button role="menuitem" type="button" data-say="Shared">Share</button>
+    </div>
+    <div id="tip" popover="hint" role="tooltip">Press Escape to close any of these.</div>
+  </section>
+
+  <h2 id="h-dialog">Dialog</h2>
+  <section aria-labelledby="h-dialog">
+    <button class="btn primary" id="open-dlg" type="button" commandfor="dlg" command="show-modal">Delete project</button>
+    <p id="dlg-result" aria-live="polite"></p>
+    <dialog id="dlg" aria-labelledby="dlg-title" closedby="any">
+      <form method="dialog">
+        <h3 id="dlg-title">Delete this project?</h3>
+        <p>It moves to the bin for thirty days.</p>
+        <div class="row">
+          <button class="btn" value="cancel" id="dlg-cancel" autofocus>Cancel</button>
+          <button class="btn primary" value="delete" id="dlg-ok">Delete</button>
+        </div>
+      </form>
+    </dialog>
+  </section>
+
+  <h2 id="h-acc">Accordion</h2>
+  <section aria-labelledby="h-acc">
+    <details name="faq" id="q1" open><summary>Does it work offline?</summary><p>Yes. Nothing on this page reaches the network.</p></details>
+    <details name="faq" id="q2"><summary>Does it need JavaScript?</summary><p>Only the tabs, the toast and the fallbacks do.</p></details>
+    <details name="faq" id="q3"><summary>Which browsers?</summary><p>Tested in Chrome. Check the others against their current support.</p></details>
+  </section>
+
+  <h2 id="h-tabs">Tabs</h2>
+  <section aria-labelledby="h-tabs">
+    <div role="tablist" aria-labelledby="h-tabs" id="tabs">
+      <button role="tab" id="t1" aria-controls="p1" aria-selected="true" tabindex="0" type="button">Design</button>
+      <button role="tab" id="t2" aria-controls="p2" aria-selected="false" tabindex="-1" type="button">Build</button>
+      <button role="tab" id="t3" aria-controls="p3" aria-selected="false" tabindex="-1" type="button">Ship</button>
+    </div>
+    <div role="tabpanel" id="p1" aria-labelledby="t1" tabindex="0"><p>Directions, tokens, type.</p></div>
+    <div role="tabpanel" id="p2" aria-labelledby="t2" tabindex="0" hidden><p>Components, motion, content.</p></div>
+    <div role="tabpanel" id="p3" aria-labelledby="t3" tabindex="0" hidden><p>Gate, package, hand off.</p></div>
+  </section>
+
+  <h2 id="h-sel">Select and toast</h2>
+  <section aria-labelledby="h-sel">
+    <div class="row">
+      <label for="speed">Speed</label>
+      <select id="speed"><option>Calm</option><option selected>Lively</option><option>Cinematic</option></select>
+      <button class="btn" id="save" type="button">Save</button>
+    </div>
+  </section>
+</main>
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+
+  // Writing direction: every placement above uses logical properties, so one attribute flips the page.
+  $('dir-btn').addEventListener('click', e => {
+    const rtl = document.documentElement.dir !== 'rtl';
+    document.documentElement.dir = rtl ? 'rtl' : 'ltr';
+    e.currentTarget.setAttribute('aria-pressed', String(rtl));
+  });
+
+  // Toast: one polite region that exists from load. Clear, then write a moment later, so a repeat is announced again.
+  let toastTimer = 0;
+  function toast(text) {
+    const t = $('toast');
+    t.textContent = '';
+    clearTimeout(toastTimer);
+    setTimeout(() => { t.textContent = text; t.classList.add('on'); }, 80);
+    toastTimer = setTimeout(() => { t.classList.remove('on'); }, 4000);
+  }
+  window.toast = toast;
+
+  // Menu items: act, close the popover (focus returns to the button), announce.
+  const menu = $('menu');
+  menu.addEventListener('click', e => {
+    const item = e.target.closest('[role="menuitem"]'); if (!item) return;
+    menu.hidePopover(); $('menu-btn').focus(); toast(item.dataset.say);
+  });
+  // Arrow keys inside the menu; Escape and light dismiss come from the popover itself.
+  menu.addEventListener('keydown', e => {
+    const items = [...menu.querySelectorAll('[role="menuitem"]')], i = items.indexOf(document.activeElement);
+    const next = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: items.length - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault(); items[(next + items.length) % items.length].focus();
+  });
+  menu.addEventListener('toggle', e => { if (e.newState === 'open') menu.querySelector('[role="menuitem"]').focus(); });
+
+  // Fallback placement when anchor positioning is missing.
+  if (!CSS.supports('anchor-name', '--a')) {
+    menu.addEventListener('beforetoggle', e => {
+      if (e.newState !== 'open') return;
+      const r = $('menu-btn').getBoundingClientRect();
+      menu.style.setProperty('--menu-top', r.bottom + 6 + 'px'); menu.style.setProperty('--menu-left', r.left + 'px');
+    });
+  }
+
+  // Dialog: invoker commands where supported, a click handler where not.
+  const dlg = $('dlg');
+  if (!('command' in HTMLButtonElement.prototype)) $('open-dlg').addEventListener('click', () => dlg.showModal());
+  dlg.addEventListener('close', () => {
+    $('dlg-result').textContent = dlg.returnValue === 'delete' ? 'Project deleted.' : 'Nothing deleted.';
+  });
+
+  // Tooltip: interestfor opens it on hover and focus where supported; otherwise focus and pointer open it.
+  if (!('interestForElement' in HTMLButtonElement.prototype)) {
+    const btn = $('tip-btn'), tip = $('tip');
+    const show = () => { try { tip.showPopover({ source: btn }); } catch { try { tip.showPopover(); } catch {} } };
+    const hide = () => { try { tip.hidePopover(); } catch {} };
+    btn.addEventListener('focus', show); btn.addEventListener('blur', hide);
+    btn.addEventListener('pointerenter', show); btn.addEventListener('pointerleave', hide);
+  }
+
+  // Tabs (ARIA Authoring Practices, automatic activation). Arrow keys follow the writing direction.
+  const tablist = $('tabs'), tabs = [...tablist.querySelectorAll('[role="tab"]')];
+  function select(tab) {
+    for (const t of tabs) {
+      const on = t === tab;
+      t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1;
+      $(t.getAttribute('aria-controls')).hidden = !on;
+    }
+    tab.focus();
+  }
+  tablist.addEventListener('click', e => { const t = e.target.closest('[role="tab"]'); if (t) select(t); });
+  tablist.addEventListener('keydown', e => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const i = tabs.indexOf(document.activeElement); if (i < 0) return;
+    const rtl = getComputedStyle(tablist).direction === 'rtl';
+    const step = { ArrowRight: rtl ? -1 : 1, ArrowLeft: rtl ? 1 : -1 }[e.key];
+    let j = step === undefined ? { Home: 0, End: tabs.length - 1 }[e.key] : (i + step + tabs.length) % tabs.length;
+    if (j === undefined) return;
+    e.preventDefault(); select(tabs[j]);
+  });
+
+  $('save').addEventListener('click', () => toast('Saved: ' + $('speed').value));
+  window.__done = true;
+})();
+</script>
+</body>
+</html>

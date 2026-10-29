@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en" data-theme="ink">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Token system lab</title>
+<!--
+  tokens.html: one markup, three complete themes (ink dark, paper light, brut structural), switched with a designed
+  View Transition, plus a Calm mode. Shows: the pre-paint theme script; three token layers (primitives, semantic,
+  component); structural tokens (radius, border width, shadow, heading font); light-dark(); relative colour;
+  a typed @property that animates; a canvas that repaints from the tokens when the theme changes; the switch pattern
+  from Ultra Bookworm (circle reveal from the button, 720 ms on a strong in-out curve; a 220 ms crossfade under Calm
+  and reduced motion; skipTransition on a second press; cleanup only for the current transition; direct switch when
+  the API is missing or the tab is hidden).
+  ?theme=ink|paper|brut forces a theme (tests).
+  verified: Windows 10, Chrome 155 headless via playwright-core 1.64: scripts/test-tokens.mjs (every assertion) and
+            sensei-verify's sensei-gate.mjs in strict file://.
+  not verified: Firefox and Safari (light-dark(), relative colour, @property, View Transitions); screen reader speech
+            of the announcements.
+  Origin: code-ui/tokens.html in the HTML-Sensei build project's research notes (not shipped) (HTML-Sensei's own code), extended with the switch details of
+          Ultra Bookworm's switchLook and setCalm (app/app.js in the owner's Ultra Bookworm project (not shipped), the owner's project).
+-->
+<script>
+/* Pre-paint theme, in <head> and synchronous, so a saved or system theme never flashes the wrong one.
+   Storage is a per-viewer convenience: every access in try/catch (private windows and sandboxes throw). */
+(function () {
+  var t = null, calm = false, d = document.documentElement;
+  try { t = localStorage.getItem("lab-theme"); calm = localStorage.getItem("lab-calm") === "1"; } catch (e) {}
+  if (!t) t = matchMedia("(prefers-color-scheme: light)").matches ? "paper" : "ink";
+  var q = /[?&]theme=(\w+)/.exec(location.search); if (q) t = q[1];
+  if (["ink", "paper", "brut"].indexOf(t) < 0) t = "ink";
+  d.setAttribute("data-theme", t);
+  if (calm) d.classList.add("calm");
+})();
+</script>
+<style>
+/* ---- layer 1: primitives. Raw values; components never read them. ---- */
+@property --accent-h { syntax: "<number>"; inherits: true; initial-value: 262; }
+:root {
+  --p-ink-900: #0b0a14; --p-ink-800: #15132a; --p-ink-050: #f4f2ff; --p-ink-300: #c9c4e6; --p-violet-400: #8b7bff; --p-cyan-400: #3dd6f5;
+  --p-paper-050: #faf8f3; --p-paper-000: #ffffff; --p-paper-900: #17142b; --p-paper-700: #3b3758; --p-indigo-600: #4a35e8; --p-teal-700: #006b8f;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif; --font-read: Georgia, "Times New Roman", Tahoma, serif;
+  --space-1: .5rem; --space-2: 1rem; --space-3: 1.5rem; --space-4: 2.5rem;
+  --ease-strong: cubic-bezier(.77, 0, .175, 1);
+}
+/* ---- layer 2: semantic tokens, named by ROLE. A theme is a block that sets these and nothing else. ---- */
+html[data-theme="ink"] { color-scheme: dark; --bg: var(--p-ink-900); --surface: var(--p-ink-800); --text: var(--p-ink-050); --text-soft: var(--p-ink-300);
+  --brand: var(--p-violet-400); --on-brand: var(--p-ink-900); --accent: var(--p-cyan-400); --line: #6a6694;
+  --radius: 16px; --border-w: 1px; --shadow: 0 20px 50px -20px #000a; --font-head: var(--font-ui); --head-tracking: -.01em; }
+html[data-theme="paper"] { color-scheme: light; --bg: var(--p-paper-050); --surface: var(--p-paper-000); --text: var(--p-paper-900); --text-soft: var(--p-paper-700);
+  --brand: var(--p-indigo-600); --on-brand: #fff; --accent: var(--p-teal-700); --line: #767676;
+  --radius: 6px; --border-w: 1px; --shadow: 0 12px 30px -20px #1e145080; --font-head: var(--font-read); --head-tracking: 0; }
+html[data-theme="brut"] { color-scheme: light; --bg: #fff4c2; --surface: #9ad8ff; --text: #000; --text-soft: #111; --brand: #ff5d8f; --on-brand: #000;
+  --accent: #000; --line: #000; --radius: 0; --border-w: 3px; --shadow: 6px 6px 0 #000; --font-head: var(--font-ui); --head-tracking: -.02em; }
+/* ---- layer 3: components read semantic tokens only; states are derived, not hand-picked ---- */
+body { margin: 0; padding: var(--space-3); background: var(--bg); color: var(--text); font: 400 1rem/1.6 var(--font-ui); }
+.card { background: var(--surface); border: var(--border-w) solid var(--line); border-radius: var(--radius); padding: var(--space-3); box-shadow: var(--shadow); max-inline-size: 36rem; }
+.card h1 { font: 700 1.6rem/1.2 var(--font-head); letter-spacing: var(--head-tracking); margin: 0 0 var(--space-1); }
+.card p { color: var(--text-soft); margin: 0 0 var(--space-2); }
+.row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+.btn { min-block-size: 44px; padding-inline: 1.3rem; border: var(--border-w) solid transparent; border-radius: calc(var(--radius) * .75); background: var(--brand); color: var(--on-brand); font: 600 1rem var(--font-ui); cursor: pointer; }
+.btn:hover { background: color-mix(in srgb, var(--brand) 88%, var(--text)); }
+.btn.ghost { background: transparent; color: var(--text); border-color: currentColor; }
+.btn[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.swatch { display: flex; gap: 6px; margin-block-start: var(--space-2); }
+.swatch i { inline-size: 36px; block-size: 36px; border-radius: calc(var(--radius) / 2); border: 1px solid var(--line); }
+/* light-dark(): one declaration for both schemes, driven by color-scheme on the theme root */
+.note { margin-block-start: var(--space-2); padding: .6rem .8rem; border-radius: 8px; color: light-dark(#1a1a1a, #f2f2f2); background: light-dark(#fff3c4, #3a3300); }
+/* relative colour: hover, pressed and muted states from ONE brand value. A plain fallback first for older engines. */
+.derive i:nth-child(1) { background: var(--brand); background: oklch(from var(--brand) calc(l + .15) c h); }
+.derive i:nth-child(2) { background: var(--brand); }
+.derive i:nth-child(3) { background: var(--brand); background: oklch(from var(--brand) calc(l - .15) c h); }
+.derive i:nth-child(4) { background: var(--brand); background: oklch(from var(--brand) l calc(c * .3) h); }
+/* a typed custom property animates smoothly; an untyped one would flip at the halfway point */
+.hue { block-size: 10px; border-radius: 5px; background: hsl(var(--accent-h) 80% 60%); animation: hue 6s linear infinite alternate; margin-block-start: var(--space-2); }
+@keyframes hue { to { --accent-h: 332; } }
+canvas { display: block; inline-size: 100%; block-size: 60px; margin-block-start: var(--space-2); border-radius: calc(var(--radius) / 2); }
+.calm .hue { animation: none; }
+@media (prefers-reduced-motion: reduce) { .hue { animation: none; } }
+.sr { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* The switch: the old snapshot holds still under the new one, which the script opens as a circle.
+   Fade mode (Calm, reduced motion, the Calm switch itself) is a 220 ms crossfade: opacity, not movement. */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+html[data-vt="fade"]::view-transition-old(root) { animation: vt-out 220ms ease both; }
+html[data-vt="fade"]::view-transition-new(root) { animation: vt-in 220ms ease both; }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; } }
+</style>
+</head>
+<body>
+<main class="card">
+  <h1>One markup, three themes</h1>
+  <p>Components read semantic tokens only. A theme is a block of custom properties, structural ones included.</p>
+  <div class="row">
+    <button class="btn" id="b1" type="button">Primary</button>
+    <button class="btn ghost" type="button">Ghost</button>
+  </div>
+  <div class="swatch derive" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="hue" aria-hidden="true"></div>
+  <canvas id="cv" aria-hidden="true"></canvas>
+  <div class="note">This note uses light-dark(): one rule, both schemes.</div>
+  <div class="row" style="margin-block-start:1rem">
+    <button class="btn ghost" id="sw" type="button">Ink look. Switch to Paper</button>
+    <button class="btn ghost" id="calm" type="button" aria-pressed="false">Calm</button>
+  </div>
+  <p class="sr" id="live" aria-live="polite"></p>
+</main>
+<script>
+(function () {
+  var T = ["ink", "paper", "brut"], L = { ink: "Ink", paper: "Paper", brut: "Brut" };
+  var root = document.documentElement, RM = matchMedia("(prefers-reduced-motion: reduce)");
+  var live = document.getElementById("live"), sw = document.getElementById("sw"), cb = document.getElementById("calm");
+  function calm() { return root.classList.contains("calm") || RM.matches; }
+  function say(m) { live.textContent = ""; setTimeout(function () { live.textContent = m; }, 80); }
+  function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function next() { return T[(T.indexOf(root.dataset.theme) + 1) % T.length]; }
+  /* the button is named by state and action ("Ink look. Switch to Paper"), not aria-pressed */
+  function label() { sw.textContent = L[root.dataset.theme] + " look. Switch to " + L[next()]; }
+  /* Canvas, WebGL and video layers do not see CSS variables: read the tokens after every theme change. */
+  var cv = document.getElementById("cv");
+  function paint() {
+    var cs = getComputedStyle(root), w = cv.clientWidth, h = cv.clientHeight, dpr = Math.min(2, devicePixelRatio || 1);
+    if (!w || !h) return;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    var g = cv.getContext("2d"), grad = g.createLinearGradient(0, 0, cv.width, 0);
+    grad.addColorStop(0, cs.getPropertyValue("--brand").trim()); grad.addColorStop(1, cs.getPropertyValue("--accent").trim());
+    g.fillStyle = grad; g.fillRect(0, 0, cv.width, cv.height);
+    cv.dataset.painted = cs.getPropertyValue("--brand").trim();
+  }
+  /* re-measure when the box changes (a canvas sized while hidden is 0 by 0) */
+  if (window.ResizeObserver) new ResizeObserver(paint).observe(cv);
+  function applyTheme(t, announce) {
+    root.setAttribute("data-theme", t); store("lab-theme", t); label(); paint();
+    if (announce) say(L[t] + " look.");
+  }
+  function setCalm(on, announce) {
+    root.classList.toggle("calm", on); cb.setAttribute("aria-pressed", on ? "true" : "false"); store("lab-calm", on ? "1" : "0");
+    if (announce) say(on ? "Calm on. No motion." : "Calm off.");
+  }
+  var lookVT = null;
+  function switchLook(fn, origin, plain) {
+    if (!document.startViewTransition || document.hidden) { fn(); return; }
+    if (lookVT) { try { lookVT.skipTransition(); } catch (e) {} }          /* a second press finishes the first */
+    var r = origin.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    var R = Math.ceil(Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)));
+    var mode = plain || calm() ? "fade" : "reveal";
+    root.setAttribute("data-vt", mode);
+    var vt = lookVT = document.startViewTransition(fn);
+    vt.ready.then(function () {
+      if (mode !== "reveal") return;
+      root.animate({ clipPath: ["circle(0px at " + x + "px " + y + "px)", "circle(" + R + "px at " + x + "px " + y + "px)"] },
+        { duration: 720, easing: "cubic-bezier(.77,0,.175,1)", pseudoElement: "::view-transition-new(root)" });
+    }).catch(function () {});
+    vt.finished.catch(function () {}).then(function () {
+      if (lookVT === vt) { lookVT = null; root.removeAttribute("data-vt"); }  /* only the current transition cleans up */
+    });
+  }
+  /* Count the target from the last press, not from the DOM: during a transition data-theme has not changed yet,
+     and two quick presses must move two steps (the landing example's trap 23). */
+  var wantTheme = null;
+  sw.addEventListener("click", function () {
+    var t = T[(T.indexOf(wantTheme || root.dataset.theme) + 1) % T.length]; wantTheme = t;
+    switchLook(function () { applyTheme(t, true); if (wantTheme === t) wantTheme = null; }, sw, false);
+  });
+  cb.addEventListener("click", function () { var on = !root.classList.contains("calm"); switchLook(function () { setCalm(on, true); }, cb, true); });
+  cb.setAttribute("aria-pressed", root.classList.contains("calm") ? "true" : "false");
+  label(); paint();
+  window.__done = true;
+})();
+</script>
+</body>
+</html>

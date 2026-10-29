@@ -1,0 +1,12 @@
+<!doctype html>
+<!-- Fixture (QC finding 4, 3D lint): a WebGL loop whose only reduced-motion "branch" is a comment. Must warn. -->
+<html lang="en"><head><meta charset="utf-8"><title>3D comment guard</title></head><body><canvas id="c"></canvas>
+<script>
+  // prefers-reduced-motion handled later
+  const gl = document.getElementById('c').getContext('webgl2');
+  if (!gl) throw new Error('no WebGL');
+  addEventListener('webglcontextlost', e => e.preventDefault());
+  document.addEventListener('visibilitychange', () => {});
+  const frame = t => { gl.clearColor(Math.sin(t / 900) * 0.5 + 0.5, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); requestAnimationFrame(frame); };
+  requestAnimationFrame(frame);
+</script></body></html>

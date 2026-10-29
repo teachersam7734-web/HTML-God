@@ -1,0 +1,9 @@
+<!doctype html>
+<!-- Fixture (QC finding 4): an infinite spin with a reduce block that resets only another element. Must warn. -->
+<html lang="en"><head><meta charset="utf-8"><title>Partial reduce</title><style>
+  .spinner { animation: spin 1s linear infinite; }
+  .other { animation: fade 1s both; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fade { from { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .other { animation: none; } }
+</style></head><body><div class="spinner"></div><p class="other">Hi</p></body></html>

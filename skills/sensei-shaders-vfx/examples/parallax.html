@@ -1,0 +1,81 @@
+<!doctype html>
+<!--
+  parallax.html: 2.5D from a colour image and a greyscale depth map (white = near), marched in the fragment shader
+  (parallax occlusion, 24 layers). Raw WebGL2, no library. The image is cover-fitted to any canvas aspect. The pointer
+  (or ?x=&y= for tests) moves the view; the offset is eased in JS with 1 - pow(k, dt), so it feels the same at any
+  frame rate, and the loop stops when the offset settles (no idle drawing). Reduced motion: no pointer parallax, one
+  still. Context restore rebuilds program, buffer and textures.
+  The two images are drawn on canvases as stand-ins; in a project they are two small WebP data URIs.
+  iOS tilt needs DeviceOrientationEvent.requestPermission() from a gesture (not wired here).
+  verified: Windows 10, Chrome 155 + SwiftShader: gate3d.mjs --static passed; ?x=-1 against ?x=1 shifts the near
+            spike against the far sun (inspected).
+  not verified: tilt input; real photographs (ghosting at depth edges seen with the stand-ins, see the skill's TRAPS).
+  Adapted from code-3d/parallax.html in the HTML-Sensei build project's research notes (not shipped) (original code of this project).
+-->
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Depth parallax</title>
+<style>html,body{margin:0;height:100%;background:#0b1a33}canvas{display:block;width:100%;height:100%}</style>
+<canvas id="c" role="img" aria-label="A desert dusk with a near rock spire and a low sun"></canvas>
+<script>
+(() => {
+function mk(w, h, fn) { const c = document.createElement('canvas'); c.width = w; c.height = h; fn(c.getContext('2d'), w, h); return c; }
+const ridge = (g, w) => { g.beginPath(); g.moveTo(0, 260); for (let x = 0; x <= w; x += 32) g.lineTo(x, 200 + Math.sin(x * .03) * 25); g.lineTo(w, 320); g.lineTo(0, 320); g.fill(); };
+const img = mk(512, 320, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#0b1a33'); gr.addColorStop(1, '#d8742b'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#16233d'; ridge(g, w); g.fillStyle = '#f4d58a'; g.beginPath(); g.arc(360, 120, 44, 0, 7); g.fill();
+  g.fillStyle = '#050b14'; g.beginPath(); g.moveTo(120, 320); g.lineTo(160, 150); g.lineTo(200, 320); g.fill(); });
+const dep = mk(512, 320, (g, w, h) => { g.fillStyle = '#202020'; g.fillRect(0, 0, w, h); g.fillStyle = '#707070'; ridge(g, w);
+  g.fillStyle = '#303030'; g.beginPath(); g.arc(360, 120, 44, 0, 7); g.fill();
+  g.fillStyle = '#f0f0f0'; g.beginPath(); g.moveTo(120, 320); g.lineTo(160, 150); g.lineTo(200, 320); g.fill(); });
+const FS = `#version 300 es
+precision highp float; uniform sampler2D uImg, uDepth; uniform vec2 uRes, uOff, uFit; uniform float uStr; out vec4 o;
+void main(){
+  vec2 uv = gl_FragCoord.xy / uRes; uv.y = 1. - uv.y;
+  uv = (uv - .5) * uFit + .5;                                       // cover-fit: crop, never stretch
+  const int N = 24; vec2 dir = -uOff * uStr; vec2 p = uv; float layer = 1. / float(N), cur = 0.;
+  float d = texture(uDepth, p).r;
+  for (int i = 0; i < N; i++){ if (cur >= d) break; p += dir * layer; d = texture(uDepth, p).r; cur += layer; }   // march to the height field
+  o = vec4(texture(uImg, p).rgb, 1.);                               // images are display-space: no gamma step
+}`;
+const c = document.getElementById('c'), q = new URLSearchParams(location.search);
+const mq = matchMedia('(prefers-reduced-motion: reduce)');
+const gl = c.getContext('webgl2');
+if (!gl) { c.replaceWith(img); img.style.cssText = 'width:100%;height:100%;object-fit:cover'; window.__done = true; return; }   // still fallback
+let pr, U = {};
+function init() {
+  const sh = (t, s) => { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
+  pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, `#version 300 es\nin vec2 a; void main(){ gl_Position = vec4(a, 0., 1.); }`)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr)); gl.useProgram(pr);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  [img, dep].forEach((src, unit) => { const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); });
+  for (const n of ['uImg', 'uDepth', 'uRes', 'uOff', 'uFit', 'uStr']) U[n] = gl.getUniformLocation(pr, n);
+  gl.uniform1i(U.uImg, 0); gl.uniform1i(U.uDepth, 1); gl.uniform1f(U.uStr, .06);
+}
+init();
+function size() { const d = Math.min(devicePixelRatio || 1, 2); c.width = Math.max(2, c.clientWidth * d | 0); c.height = Math.max(2, c.clientHeight * d | 0); gl.viewport(0, 0, c.width, c.height); }
+const off = { x: +(q.get('x') || 0), y: +(q.get('y') || 0), tx: +(q.get('x') || 0), ty: +(q.get('y') || 0) };
+function draw() {
+  const ca = c.width / c.height, ia = img.width / img.height;          // cover-fit factors
+  gl.uniform2f(U.uFit, ca > ia ? 1 : ca / ia, ca > ia ? ia / ca : 1);
+  gl.uniform2f(U.uRes, c.width, c.height); gl.uniform2f(U.uOff, off.x, off.y); gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+window.__draw = (x, y) => { off.x = off.tx = x; off.y = off.ty = y; draw(); };
+window.__seek = () => draw();                                          // no time axis: the frame depends on the offset only
+let raf = 0, last = 0, lost = false;
+function loop(now) {                                                   // runs only while the offset is still moving
+  const dt = Math.min(.1, (now - (last || now)) / 1000); last = now; const k = 1 - Math.pow(.002, dt);
+  off.x += (off.tx - off.x) * k; off.y += (off.ty - off.y) * k; draw();
+  if (Math.abs(off.tx - off.x) + Math.abs(off.ty - off.y) > 1e-3 && !document.hidden) raf = requestAnimationFrame(loop); else { raf = 0; last = 0; }
+}
+addEventListener('pointermove', e => { if (mq.matches || lost) return; off.tx = e.clientX / innerWidth * 2 - 1; off.ty = e.clientY / innerHeight * 2 - 1; if (!raf) raf = requestAnimationFrame(loop); });
+mq.addEventListener('change', () => { if (mq.matches) { off.tx = off.ty = 0; if (!raf) raf = requestAnimationFrame(loop); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelAnimationFrame(raf); raf = 0; last = 0; } });
+c.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; cancelAnimationFrame(raf); raf = 0; });
+c.addEventListener('webglcontextrestored', () => { lost = false; init(); size(); draw(); });
+new ResizeObserver(() => { size(); if (!lost) draw(); }).observe(c); size(); draw();
+window.__done = true;
+})();
+</script>
+</html>

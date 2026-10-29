@@ -1,0 +1,53 @@
+<!doctype html>
+<!--
+  glb.html: a GLB carried inside the page as base64 and parsed with GLTFLoader.parseAsync, with meshopt (default) or
+  Draco (?m=draco) decoded with no network at all. Draco's decoder files come from blob URLs through the object form
+  of setDecoderPath. The camera is framed from the world-space box after posing, with an isFinite guard.
+  Build (in a work folder with three@0.186.1, esbuild@0.28.2 and the glTF-Transform packages installed):
+    node ../scripts/mkglb.mjs
+    node ../scripts/build-vendor.mjs vendor entry-glb.js
+    node ../scripts/pack-data.mjs vendor/glbdata.js GLB meshopt=meshopt.glb draco=draco.glb \
+      dracoWasm=node_modules/three/examples/jsm/libs/draco/gltf/draco_decoder.wasm \
+      dracoWrap=node_modules/three/examples/jsm/libs/draco/gltf/draco_wasm_wrapper.js
+  verified: Windows 10, Chrome 155 + SwiftShader, three 0.186.1, from file:// with every non-file request blocked:
+            meshopt and Draco both parsed and rendered; gate3d.mjs --static passed for both modes.
+  not verified: KTX2 textures; skinned or animated GLBs (see sensei-blender for the animated template); hosted pages
+                with a Content Security Policy (Draco's blob worker needs worker-src blob:).
+  Adapted from code-3d/glb.html in the HTML-Sensei build project's research notes (not shipped) (original code of this project).
+-->
+<meta charset="utf-8"><title>GLB offline</title>
+<style>html,body{margin:0;background:#06101a;color:#cfe}canvas{display:block;width:100%;height:100vh}pre{position:fixed;top:0;left:0;margin:8px;color:#7f7;font:12px monospace}</style>
+<canvas id="c" role="img" aria-label="Test mesh loaded from inside the page"></canvas><pre id="o"></pre>
+<script src="vendor/t-glb.js"></script><script src="vendor/glbdata.js"></script>
+<script>
+(async () => {
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const log = []; const mode = new URLSearchParams(location.search).get('m') || 'meshopt';
+const canvas = document.getElementById('c');
+const renderer = new T.WebGLRenderer({ canvas, antialias: true });
+const scene = new T.Scene(); const cam = new T.PerspectiveCamera(40, 2, .1, 50);
+const mgr = new T.LoadingManager(); const loader = new T.GLTFLoader(mgr);
+if (mode === 'meshopt') loader.setMeshoptDecoder(T.MeshoptDecoder);
+else {
+  const blob = (s, t) => URL.createObjectURL(new Blob([b64(s)], { type: t }));
+  const d = new T.DRACOLoader(mgr);
+  d.setDecoderPath({ js: blob(GLB.dracoWrap, 'text/javascript'), wasm: blob(GLB.dracoWasm, 'application/wasm') });
+  loader.setDRACOLoader(d);
+}
+const t0 = performance.now();
+const gltf = await loader.parseAsync(b64(GLB[mode]).buffer, '');
+log.push(`${mode}: parsed in ${performance.now() - t0 | 0} ms`);
+gltf.scene.traverse(o => { if (o.isMesh) { o.material = new T.MeshNormalMaterial(); log.push(`verts=${o.geometry.attributes.position.count} normalized=${o.geometry.attributes.position.normalized}`); } });
+scene.add(gltf.scene); gltf.scene.rotation.x = -.9; gltf.scene.updateMatrixWorld(true);
+// Frame from the WORLD box (quantised meshes carry their scale on the node) and refuse NaN (all-zero skin weights)
+const box = new T.Box3().setFromObject(gltf.scene), c = box.getCenter(new T.Vector3()), s = box.getSize(new T.Vector3());
+if ([c.x, c.y, c.z, s.x, s.y, s.z].every(Number.isFinite) && s.length() > 0) { cam.position.set(c.x, c.y, c.z + s.length() * 1.4); cam.lookAt(c); }
+else { console.warn('framing: bounding box is not finite, default frame used'); cam.position.set(0, 0, 6); }
+log.push('world box size ' + s.toArray().map(x => +x.toFixed(2)).join(' '));
+function render() { const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); renderer.render(scene, cam); }
+new ResizeObserver(render).observe(canvas); render();
+canvas.addEventListener('webglcontextlost', e => e.preventDefault());
+canvas.addEventListener('webglcontextrestored', render);
+document.getElementById('o').textContent = log.join('\n'); console.log(log.join(' | ')); window.__done = true;
+})().catch(e => { console.error('ERR ' + e.message); document.getElementById('o').textContent = 'ERR ' + e.message; window.__done = true; });
+</script>

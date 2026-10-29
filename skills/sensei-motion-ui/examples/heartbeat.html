@@ -1,0 +1,103 @@
+<!doctype html>
+<!--
+  heartbeat.html: a sound and a visual pulse kept in step by making the audio clock the master. A 25 ms look-ahead
+  scheduler books each beat about 100 ms ahead on AudioContext.currentTime and starts that beat's WAAPI pulse at the
+  same moment on the document timeline; tempo changes never jump the picture's phase (each beat is its own
+  animation, not one infinite animation whose duration is changed); performance.now() drives the pulse when there is
+  no running audio; it all stops when the tab is hidden. HTML-Sensei's own code, from the Ultra Bookworm field log
+  (design-fix agent, phase 1).
+
+  verified: Chrome 156 headless (Windows 10, autoplay allowed by flag), strict file://: test-motion-ui.mjs checks
+            beats booked ahead of the audio clock at exact 60/bpm spacing, each pulse's startTime equal to its beat
+            mapped through getOutputTimestamp(), no pulse restarted by a tempo change, fallback to performance.now
+            with audio off, stop on hidden, reduced-motion pulse without scale.
+  not verified: acoustic picture-to-sound offset (needs a microphone or a capture; the field log measured 1 to 18 ms
+            by pairing scheduled oscillator starts with animation starts); Safari's audio clock; phones.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heartbeat on the audio clock</title>
+<style>
+body { margin: 0; min-block-size: 100vh; display: grid; place-items: center; background: #120f14; color: #f3eee9; font: 1rem/1.5 system-ui, sans-serif; }
+main { display: grid; gap: 1.25rem; justify-items: center; padding: 2rem 1rem; text-align: center; }
+.heart { inline-size: 120px; block-size: 120px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ff8aa1, #c2184b 70%); border: 1px solid #ff8aa1; }
+.btn { min-block-size: 2.75rem; padding-inline: 1.25rem; border: 1px solid #ff8aa1; border-radius: 10px; background: #2a1d24; color: inherit; font: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid #ffd27a; outline-offset: 3px; }
+h1 { margin: 0; font-size: 1.5rem; }
+label { display: flex; flex-wrap: wrap; justify-content: center; gap: .75rem; align-items: center; min-block-size: 2.75rem; }
+input[type=range] { inline-size: min(12rem, 70vw); block-size: 28px; margin: 0; accent-color: #ff8aa1; border: 1px solid transparent; border-radius: 6px; }
+input[type=checkbox] { inline-size: 24px; block-size: 24px; margin: 0; accent-color: #ff8aa1; }
+@media (prefers-reduced-motion: reduce) { .heart { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Heartbeat on the audio clock</h1>
+  <div class="heart" id="heart" role="img" aria-label="Heart"></div>
+  <div><button class="btn" id="start" type="button" aria-pressed="false">Start heartbeat</button></div>
+  <label for="bpm">Tempo <input id="bpm" type="range" min="40" max="160" value="72"> <output id="bpmv" for="bpm">72</output> bpm</label>
+  <label for="snd"><input id="snd" type="checkbox" checked> Sound</label>
+  <p id="clock" aria-live="polite"></p>
+</main>
+<script src="../scripts/motion-gate.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const heart = $('heart'), G = window.SenseiMotionGate;
+  const LOOKAHEAD = 0.1, TICK = 25;               // book 100 ms ahead, check every 25 ms
+  let ctx = null, timer = 0, next = 0, running = false, usingAudio = false;
+  const beats = window.__beats = [];
+
+  const pulseFrames = () => G.reduce
+    ? [{ opacity: 1 }, { opacity: .7, offset: .2 }, { opacity: 1 }]                    // no scale under reduced motion
+    : [{ scale: 1 }, { scale: 1.12, offset: .12 }, { scale: .98, offset: .3 }, { scale: 1.05, offset: .42 }, { scale: 1 }];
+
+  // Map an audio-clock time to the document timeline (same origin as performance.now()).
+  function audioToPerf(t) { const ts = ctx.getOutputTimestamp ? ctx.getOutputTimestamp() : null;
+    if (ts && ts.performanceTime) return ts.performanceTime + (t - ts.contextTime) * 1000;
+    return performance.now() + (t - ctx.currentTime) * 1000; }
+
+  function thump(t) {
+    if (!$('snd').checked) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.15);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.6, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + 0.2);
+  }
+  function pulseAt(perfTime, meta) {
+    const a = heart.animate(pulseFrames(), { duration: 420, easing: 'ease-out' });
+    a.startTime = perfTime;                         // start on the beat, not when this code happens to run
+    beats.push(Object.assign({ perf: perfTime, anim: a }, meta));
+    if (beats.length > 64) beats.shift();
+  }
+  const interval = () => 60 / +$('bpm').value;
+
+  function schedule() {
+    if (usingAudio) {
+      while (next < ctx.currentTime + LOOKAHEAD) { thump(next); pulseAt(audioToPerf(next), { audio: next, bookedAt: ctx.currentTime, bpm: +$('bpm').value }); next += interval(); }
+    } else {
+      const now = performance.now() / 1000;
+      while (next < now + LOOKAHEAD) { pulseAt(next * 1000, { audio: null, bookedAt: now, bpm: +$('bpm').value }); next += interval(); }
+    }
+  }
+  async function start() {
+    if (running) return; running = true;
+    try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended') await ctx.resume(); } catch { ctx = null; }
+    usingAudio = !!ctx && ctx.state === 'running';
+    next = (usingAudio ? ctx.currentTime : performance.now() / 1000) + 0.05;
+    $('clock').textContent = usingAudio ? 'Following the audio clock.' : 'No running audio: following the page clock.';
+    timer = setInterval(schedule, TICK); schedule();
+    $('start').setAttribute('aria-pressed', 'true'); $('start').textContent = 'Stop heartbeat';
+  }
+  function stop() { running = false; clearInterval(timer); $('start').setAttribute('aria-pressed', 'false'); $('start').textContent = 'Start heartbeat'; }
+  $('start').addEventListener('click', () => (running ? stop() : start()));
+  $('bpm').addEventListener('input', () => { $('bpmv').textContent = $('bpm').value; });   // takes effect from the next beat
+  document.addEventListener('visibilitychange', () => { if (document.hidden && running) { stop(); window.__stoppedHidden = true; } });
+  window.__hb = { start, stop, get usingAudio() { return usingAudio; }, get ctx() { return ctx; } };
+  window.__done = true;
+})();
+</script>
+</body>
+</html>

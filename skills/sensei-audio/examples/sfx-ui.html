@@ -1,0 +1,84 @@
+<!doctype html>
+<!--
+  sfx-ui.html: UI sound done safely. A visible sound switch (aria-pressed) and a volume slider, both remembered;
+  muted on first visit; the context unlocked by the first gesture; every sound paired with a caption in a polite live
+  region and a visual change, so sound is never the only feedback; motion sounds (whoosh, impact) dropped under
+  reduced motion while confirmations stay; the context suspended while the tab is hidden; a room reverb on the
+  confirmation chime (sensei-room.js). Runs in place (loads ../scripts/*.js); inline them for one file.
+  verified: Windows 10, Chrome 155 headless (scripts/test-audio.mjs): starts muted with the switch reading "Sound off";
+            Enter on the switch turns sound on and the choice survives a reload; buttons write their captions to the
+            live region and flash; the volume slider sets the engine volume; reduced motion makes the whoosh button
+            return 0 (not played) while the chime plays; no network request, no console error.
+  not verified: how it sounds; Safari, Firefox and phones (iOS ringer switch mutes Web Audio by design).
+  Original code of this project.
+-->
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sound in the interface</title>
+<style>
+  :root { --bg: #f6f6f2; --fg: #15171c; --mut: #5b616e; --acc: #1f6feb; --ok: #1a7f37; --bad: #b42318; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0f1115; --fg: #eceef3; --mut: #9aa1ae; --acc: #6aa7ff; --ok: #4ac26b; --bad: #ff7b72; color-scheme: dark; } }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px; }
+  .bar { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 24px; }
+  button { font: inherit; color: var(--fg); background: transparent; border: 1px solid var(--acc); border-radius: 8px; padding: 8px 16px; min-height: 44px; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--acc); color: var(--bg); }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .flash-ok { box-shadow: 0 0 0 3px var(--ok); } .flash-bad { box-shadow: 0 0 0 3px var(--bad); }
+  #status { min-height: 1.5em; color: var(--mut); }
+  @media (prefers-reduced-motion: no-preference) { button { transition: box-shadow .2s ease-out; } }
+  @media (forced-colors: active) { button { border-color: ButtonText; } button[aria-pressed="true"] { background: Highlight; color: HighlightText; } }
+</style>
+<main>
+  <h1>Sound in the interface</h1>
+  <div class="bar">
+    <button id="sound" type="button" aria-pressed="false">Sound off</button>
+    <label>Volume <input id="vol" type="range" min="0" max="1" step="0.05" value="0.8"></label>
+  </div>
+  <div class="grid">
+    <button type="button" data-sfx="click" data-say="Clicked">Click</button>
+    <button type="button" data-sfx="toggleOn" data-say="Option switched on">Toggle</button>
+    <button type="button" data-sfx="whoosh" data-say="Panel opened">Open panel</button>
+    <button type="button" data-sfx="success" data-say="Correct answer" data-flash="ok">Right answer</button>
+    <button type="button" data-sfx="error" data-say="Not quite, try again" data-flash="bad">Wrong answer</button>
+    <button type="button" data-sfx="room-glass" data-say="Saved" data-flash="ok">Save</button>
+  </div>
+  <p id="status" role="status" aria-live="polite"></p>
+</main>
+<script src="../scripts/sensei-sfx.js"></script>
+<script src="../scripts/sensei-room.js"></script>
+<script>
+(function () {
+  'use strict';
+  var KEY = 'sfx-ui-demo';
+  var firstVisit = true;
+  try { firstVisit = localStorage.getItem(KEY) === null; } catch (e) {}
+  var sfx = SenseiSFX.create({ storageKey: KEY, startMuted: firstVisit });
+  sfx.attachAnnouncer(document.getElementById('status'));
+  sfx.unlockOnGesture(document);
+  sfx.suspendWhenHidden();
+  var room = null;
+  function getRoom() { if (!room && sfx.ensure()) room = SenseiRoom.create(sfx.ctx, { destination: sfx._master() }); return room; }
+  var btn = document.getElementById('sound'), vol = document.getElementById('vol');
+  function show() { var m = sfx.state.muted; btn.setAttribute('aria-pressed', String(!m)); btn.textContent = m ? 'Sound off' : 'Sound on'; vol.value = sfx.state.volume; }
+  btn.addEventListener('click', function () { sfx.toggleMute(); show(); });
+  vol.addEventListener('input', function () { sfx.setVolume(+vol.value); });
+  var last = window.__lastPlay = { name: null, result: null };
+  document.querySelectorAll('[data-sfx]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var cls = b.dataset.flash === 'bad' ? 'flash-bad' : 'flash-ok';
+      var flash = function () { b.classList.add(cls); setTimeout(function () { b.classList.remove(cls); }, 400); };
+      var r;
+      if (b.dataset.sfx === 'room-glass') {
+        r = sfx.play('tick', { caption: b.dataset.say, flash: flash });           // caption, flash, mute rules
+        if (!sfx.state.muted && getRoom()) r = room.glass(sfx.ctx.currentTime + 0.01, { dist: 0.35 });
+      } else r = sfx.play(b.dataset.sfx, { caption: b.dataset.say, flash: flash });
+      last.name = b.dataset.sfx; last.result = r;
+    });
+  });
+  show();
+  window.__sfx = sfx;
+})();
+</script>
+</html>

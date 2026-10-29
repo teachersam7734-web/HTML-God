@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- Fixture: a WebGL page that follows the 3D lane's rules. Should lint clean (lint-3d, lint-web). -->
+<html lang="en"><head><meta charset="utf-8"><title>Good 3D</title></head>
+<body>
+<canvas id="c" aria-label="Rotating shape"></canvas>
+<script>
+  const canvas = document.getElementById('c');
+  const gl = canvas.getContext('webgl2');
+  if (!gl) { canvas.replaceWith(Object.assign(document.createElement('img'), { alt: 'Still of the shape', src: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' })); }
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const dpr = Math.min(devicePixelRatio, 2);
+  canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
+  const vs = `#version 300 es
+  in vec3 position; uniform mat4 projectionMatrix, modelViewMatrix;
+  void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+  let running = false, raf = 0, t0 = performance.now();
+  function draw(t) { gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+  function frame(now) { draw((now - t0) / 1000); raf = requestAnimationFrame(frame); }
+  function start() { if (!running && !reduce.matches) { running = true; raf = requestAnimationFrame(frame); } else draw(0); }
+  function stop() { running = false; cancelAnimationFrame(raf); }
+  document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); stop(); });
+  canvas.addEventListener('webglcontextrestored', start);
+  reduce.addEventListener('change', () => { stop(); start(); });
+  if (gl) start();
+</script>
+</body></html>

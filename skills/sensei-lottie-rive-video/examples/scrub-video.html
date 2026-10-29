@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Scroll-scrubbed video (video element)</title>
+<!--
+  scrub-video.html: a sticky video whose frame follows the scroll. Scroll progress maps to currentTime with an eased
+  follow, ONE seek in flight at a time (no new seek while the last has not fired "seeked"), a 0.02 s dead-band, and
+  reduced motion jumps straight to the target instead of easing. Encode the clip for scrubbing: a keyframe every 4 to
+  12 frames and no B-frames (ffmpeg-recipes.mjs, "scrub"), or all-intra for the most exact seeks at about 3 times the
+  size. The src below is the frame-coded test clip from make-clips.mjs; use your own clip.
+  verified: Windows 10, Chrome 155 headless over strict file:// (test-video.mjs): the shown frame is within one frame
+            of the target at six scroll positions with the all-intra frame-coded clip.
+  not verified: iOS Safari (long-GOP seeking there is reported to be slow); real 1080p or 4K footage.
+  Adapted from code-media/video/scrub-video.html in the HTML-Sensei build project's research notes (not shipped) (original to this project; run there).
+-->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body { margin: 0; font: 16px system-ui; }
+  .track { height: 400vh; position: relative; }
+  .stick { position: sticky; top: 0; height: 100vh; display: grid; place-items: center; background: #111; }
+  video { width: min(90vw, 640px); background: #000; }
+  .note { position: fixed; left: 12px; bottom: 12px; color: #fff; mix-blend-mode: difference; }
+</style>
+<div class="track" id="track">
+  <div class="stick">
+    <!-- poster shows if the video cannot decode; muted + playsinline + preload for iOS; no controls (decorative) -->
+    <video id="v" muted playsinline preload="auto" src="framecode-allintra.mp4" aria-hidden="true"></video>
+  </div>
+</div>
+<div class="note" id="n">0%</div>
+<script>
+  // Scrub with a critically damped follow so seeks never queue up: one seek in flight at a time.
+  const v = document.getElementById('v'), track = document.getElementById('track'), n = document.getElementById('n');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let target = 0, shown = 0, seeking = false, ready = false;
+  function progress() {
+    const r = track.getBoundingClientRect(), max = r.height - innerHeight;
+    return Math.min(1, Math.max(0, -r.top / max));
+  }
+  v.addEventListener('loadedmetadata', () => { ready = true; loop(); });
+  v.addEventListener('seeked', () => { seeking = false; });
+  addEventListener('scroll', () => { target = progress(); }, { passive: true });
+  function loop() {
+    // reduced motion: jump straight to the target instead of easing
+    shown = reduce ? target : shown + (target - shown) * 0.25;
+    const t = shown * (v.duration - 0.001);
+    // 0.02 s dead-band avoids seek storms; also skip while the previous seek is unfinished
+    if (!seeking && Math.abs(v.currentTime - t) > 0.02) { seeking = true; v.currentTime = t; }
+    n.textContent = Math.round(shown * 100) + '%';
+    requestAnimationFrame(loop);
+  }
+  window.__state = () => ({ target, shown, t: v.currentTime, dur: v.duration });
+</script>

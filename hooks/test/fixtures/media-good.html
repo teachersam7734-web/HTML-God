@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>media good</title>
+<style>@view-transition { navigation: auto; }
+@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }</style></head><body><main>
+<video id="v" autoplay muted loop playsinline><source src="data:video/webm;base64,AAAA" type="video/webm"><source src="data:video/mp4;base64,AAAA" type="video/mp4"><track kind="captions" src="data:text/vtt,WEBVTT" srclang="en"></video>
+<button id="pause">Pause</button><button id="mute">Mute</button>
+<canvas id="lottie"></canvas><canvas id="rive"></canvas>
+<script>
+const rm = matchMedia('(prefers-reduced-motion: reduce)');
+document.getElementById('pause').onclick = () => document.getElementById('v').pause();
+DotLottie.setWasmUrl('blob:local');
+const anim = new DotLottie({ canvas: document.getElementById('lottie'), src: 'data:application/json,{}' });
+rive.RuntimeLoader.setWasmBinary(new Uint8Array(0));
+const r = new rive.Rive({ src: 'a.riv', canvas: document.getElementById('rive'), enableRiveAssetCDN: false });
+const ctx = new AudioContext(); const master = ctx.createGain(); let muted = false;
+addEventListener('pointerdown', () => ctx.resume(), { once: true });
+document.getElementById('mute').onclick = () => { muted = !muted; master.gain.value = muted ? 0 : 1; };
+const kf = [{ opacity: 0 }, { opacity: 1 }];
+if (!rm.matches) document.querySelector('main').animate(kf, 400);
+</script></main></body></html>

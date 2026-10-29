@@ -1,0 +1,118 @@
+<!doctype html>
+<!--
+  hop.html: a six-second hand-drawn short on one canvas, pure in t (1280x720, 24 fps). An original character, Pip (an
+  ink drop with a sprout), notices a bud, anticipates, hops on an arc, lands with squash and dust, does a take, and the
+  bud blooms; the iris opens it and a brush wipe closes it. Drawings are held on twos (poses change every 2 frames at
+  24 fps), the camera drifts on ones, linework boils 12 times a second with stable named seeds, the paper is drawn
+  once from a seed. Reads (what the viewer must understand, in order): Pip is here and alive (0 to 1.2 s); Pip sees
+  the bud (1.2 to 1.9 s); Pip jumps to it (1.9 to 3.0 s); Pip is delighted as it blooms (3.0 to 5.2 s).
+
+  verified: headless Chrome 155 on Windows 10 (SwiftShader flags): render.mjs --probe identical in and out of order;
+            held poses identical between twos inside one boil step (test-handmade.mjs); sheet, strip and crops looked at.
+  not verified: Safari and Firefox (canvas anti-aliasing differs, so frames will not match another engine pixel for
+            pixel); performance of a live loop on a phone (it is written to be rendered or scrubbed).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pip hops</title>
+<style>html, body { margin: 0; background: #2b2233; overflow: hidden; } canvas { display: block; }</style>
+</head>
+<body>
+<canvas id="c" width="1280" height="720" role="img" aria-label="A small ink-drop character called Pip sees a bud, hops over to it, lands with a bump, and the bud blooms while Pip bounces with joy."></canvas>
+<script src="../scripts/handmade-kit.js"></script>
+<script>
+(() => {
+  'use strict';
+  const H = window.Handmade, W = 1280, HT = 720, FPS = 24, DUR = 6;
+  const g = document.getElementById('c').getContext('2d');
+  const PAL = { ink: '#2b2233', clay: '#d97757', sap: '#7a9a5a', ochre: '#d9a441', sky: '#9fb8c8', rose: '#c9707a', cream: '#f3ebdc' };
+  // the plan: one table the picture and the sound cues both read
+  const P = { look: 1.2, crouch: 1.55, takeoff: 1.9, land: 2.75, take: 3.0, bloom: 3.15, wipe: 5.25, x0: 430, x1: 830, ground: 520 };
+  window.__events = [{ t: P.takeoff, type: 'hop' }, { t: P.land - 0.03, type: 'thump' }, { t: P.bloom, type: 'pop' }, { t: P.wipe, type: 'swish' }];
+  let PAPER = null;
+
+  // Pip's state from the pose time tp (on twos)
+  function pip(tp) {
+    let x = P.x0, y = P.ground, s = 1, lean = 0;
+    const breathe = 1 + 0.02 * Math.sin(tp * 2.4);                          // alive in every hold
+    if (tp >= P.crouch && tp < P.takeoff) s = H.lerp(1, 0.78, H.ease.out(H.seg(tp, P.crouch, P.crouch + 0.25)));          // anticipation
+    if (tp >= P.takeoff && tp < P.land) {
+      const k = H.seg(tp, P.takeoff, P.land), a = H.arc(H.ease.inOut(k), P.x0, P.ground, P.x1, P.ground, 190);
+      x = a.x; y = a.y; s = H.lerp(1.25, 0.95, k); lean = H.lerp(0.25, -0.15, k);                              // stretch, lean into the arc
+    }
+    if (tp >= P.land) { x = P.x1; s = 1 - 0.26 * Math.exp(-14 * (tp - P.land)) + H.ring(tp, P.land + 0.12, 0.05, 3, 7); }   // squash then settle
+    if (tp >= P.bloom + 0.4 && tp < P.wipe) { const b = H.pulse(tp, 120, P.bloom + 0.4, 9); y -= 26 * b; s *= 1 + 0.08 * b; }   // bounce on the beat
+    const look = tp < P.look ? 0 : tp < P.land ? 1 : 0.3;
+    const face = H.mood(tp, [[0, 'calm'], [P.look, 'curious'], [P.take, 'delighted']]);
+    return { x, y, s: s * breathe, lean, look, face };
+  }
+
+  function drawPip(t, tp, st) {
+    const sq = H.squash(st.s * st.face.take), r = 84;   // characters big: about a third of the frame height
+    g.save(); g.translate(st.x, st.y); g.rotate(st.lean); g.scale(sq.x, sq.y);
+    // shadow stays on the ground: drawn outside this transform below
+    const body = H.ellipse(0, -r, r, r * 1.05, 30).map(([px, py], i) => [px, py - (i === 22 ? 32 : 0)]);   // one raised point: the drop's tip
+    H.wash(g, body, { key: 'pip-body', t, color: PAL.clay, alpha: 0.85, boil: 1.4 });
+    H.blob(g, body, { key: 'pip-line', t, w: 4.2, color: PAL.ink, boil: 1.2 });
+    H.inkLine(g, [[6, -2 * r - 24], [16, -2 * r - 50], [36, -2 * r - 64]], { key: 'sprout', t, w: 5, color: PAL.sap });
+    H.wash(g, H.ellipse(44, -2 * r - 66, 22, 11, 14, -0.5), { key: 'leaf', t, color: PAL.sap, alpha: 0.8 });
+    // face: eyes look right when curious, squint during a mood change, open wide on the take
+    const ex = 18 * st.look, open = 1 - st.face.squint, wide = st.face.face === 'delighted' ? 1.25 : 1;
+    for (const side of [-1, 1]) {
+      const cx = side * 27 + ex, cy = -r - 10;
+      if (st.face.face === 'delighted' && open > 0.6) H.inkLine(g, [[cx - 9, cy + 2], [cx, cy - 7], [cx + 9, cy + 2]], { key: `eye-happy${side}`, t, w: 4 });
+      else { g.fillStyle = PAL.ink; g.beginPath(); g.ellipse(cx, cy, 6 * wide, Math.max(0.8, 9 * wide * open), 0, 0, H.TAU); g.fill(); }
+    }
+    const mouth = st.face.face === 'delighted' ? [[-14 + ex, -r + 14], [ex, -r + 26], [14 + ex, -r + 14]] : st.face.face === 'curious' ? [[-5 + ex, -r + 18], [5 + ex, -r + 18]] : [[-8 + ex, -r + 16], [ex, -r + 20], [8 + ex, -r + 16]];
+    H.inkLine(g, mouth, { key: 'mouth-' + st.face.face, t, w: 3.4 });
+    g.restore();
+  }
+
+  function seek(t) {
+    const tp = H.onTwos(t, FPS, 2);                                       // drawings on twos
+    const camX = H.lerp(0, -40, H.ease.inOut(H.seg(t, 0, DUR)));          // camera on ones: a slow drift
+    const shake = t >= P.land ? 6 * Math.exp(-12 * (t - P.land)) * Math.sin(70 * (t - P.land)) : 0;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.drawImage(PAPER, 0, 0);
+    g.save(); g.translate(camX, shake);
+    // sky band and hill (background washes boil slower: they are big and calm)
+    H.wash(g, [[-60, 0], [W + 80, 0], [W + 80, 300], [-60, 340]], { key: 'sky', t: tp, color: PAL.sky, alpha: 0.35, boil: 3, rate: 6 });
+    const hill = [[-80, P.ground + 10], [200, P.ground - 30], [520, P.ground - 6], [880, P.ground - 24], [1400, P.ground + 4], [1400, HT + 40], [-80, HT + 40]];
+    H.wash(g, hill, { key: 'hill', t: tp, color: PAL.sap, alpha: 0.42, boil: 3, rate: 6 });
+    H.inkLine(g, hill.slice(0, 5), { key: 'hill-line', t: tp, w: 3.2, rate: 6 });
+    // the bud and its bloom
+    const bk = H.ease.back(H.seg(tp, P.bloom, P.bloom + 0.5)), bx = P.x1 + 190, by = P.ground - 12;
+    H.inkLine(g, [[bx, by], [bx - 6, by - 60], [bx + 2, by - 120]], { key: 'stem', t: tp, w: 4, color: PAL.ink });
+    if (tp < P.bloom) H.wash(g, H.ellipse(bx + 2, by - 134, 17, 25, 16), { key: 'bud', t: tp, color: PAL.rose, alpha: 0.85 });
+    else for (let i = 0; i < 6; i++) {
+      const a = i / 6 * H.TAU, rr = 42 * bk;
+      H.wash(g, H.ellipse(bx + 2 + Math.cos(a) * rr, by - 134 + Math.sin(a) * rr, 28 * bk + 1, 15 * bk + 1, 14, a), { key: 'petal' + i, t: tp, color: PAL.rose, alpha: 0.8 });
+    }
+    if (tp >= P.bloom) H.wash(g, H.ellipse(bx + 2, by - 134, 15, 15, 12), { key: 'heart', t: tp, color: PAL.ochre, alpha: 0.95 });
+    // Pip, with a ground shadow that shrinks while Pip is in the air
+    const st = pip(tp), lift = P.ground - st.y;
+    g.save(); g.globalAlpha = 0.18 * Math.max(0.3, 1 - lift / 260); g.fillStyle = PAL.ink;
+    g.beginPath(); g.ellipse(st.x, P.ground + 4, 92 * (1 - lift / 600), 12, 0, 0, H.TAU); g.fill(); g.restore();
+    drawPip(t, tp, st);
+    // dust on landing: puffs are pure functions of time since the hit
+    const d = tp - P.land;
+    if (d >= 0 && d < 0.6) for (let i = 0; i < 7; i++) {
+      const side = i % 2 ? 1 : -1, sp = 120 + 60 * H.unit('dust', i);
+      const px = P.x1 + side * (50 + sp * d), py = P.ground - 10 - 40 * d * (1 + H.unit('dusty', i));
+      H.wash(g, H.ellipse(px, py, 16 * (1 + d * 2), 10 * (1 + d * 2), 12), { key: 'dust' + i, t: tp, color: PAL.cream, alpha: 0.75 * (1 - d / 0.6) });
+    }
+    g.restore();
+    // transitions at both seams: iris in, brush wipe out
+    if (t < 0.6) H.iris(g, W, HT, 520, 420, H.ease.in(H.seg(t, 0, 0.6)) * 900, PAL.ink);
+    H.brushWipe(g, W, HT, H.ease.inOut(H.seg(t, P.wipe, DUR)), { color: PAL.ink });
+    return true;
+  }
+
+  window.__meta = { dur: DUR, fps: FPS, w: W, h: HT };
+  window.__seek = window.seek = seek;
+  window.__ready = Promise.resolve().then(() => { PAPER = H.paper(document, W, HT, { seed: 'pip-paper' }); seek(0); window.READY = true; return true; });
+})();
+</script>
+</body>
+</html>

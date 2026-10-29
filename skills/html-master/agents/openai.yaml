@@ -1,0 +1,4 @@
+interface:
+  display_name: "HTML Master"
+  short_description: "Cinematic HTML, useful motion, and reliable interactions"
+  default_prompt: "Use $html-master to build a polished interactive HTML experience from my brief, with purposeful assets, motion, and verified behaviour."

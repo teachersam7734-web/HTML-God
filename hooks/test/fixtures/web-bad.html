@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- Fixture: every lint-web rule should fire on this page. Not a real page. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bad page</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter">
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+<style>
+  html { scroll-behavior: smooth; }
+  .card { transition: all 300ms ease; }
+  .hero h1 { animation: rise 1.2s both; }
+  @keyframes rise { from { transform: translateY(40px); opacity: 0 } to { transform: none; opacity: 1 } }
+  .reveal { animation: fade linear both; animation-timeline: view(); }
+  body { cursor: none; }
+</style>
+</head>
+<body>
+<div class="hero"><h1>Hello</h1></div>
+<div class="knob" id="knob"></div>
+<div class="toast" id="toast"></div>
+<script>
+  gsap.to('.card', { y: -20, scrollTrigger: { trigger: '.card', markers: true } });
+  const knob = document.getElementById('knob');
+  knob.addEventListener('pointerdown', () => knob.addEventListener('pointermove', e => { knob.style.left = e.clientX + 'px'; }));
+  function showToast(msg) { document.getElementById('toast').textContent = msg; }
+  document.querySelector('a').addEventListener('click', () => document.startViewTransition(() => showToast('saved')));
+</script>
+</body>
+</html>

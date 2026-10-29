@@ -1,0 +1,31 @@
+{
+  "status": "ok",
+  "exit": 0,
+  "seconds": 11.1,
+  "files": {
+    "docs/assets/html-god-logo.png": 1059781
+  },
+  "missing": [],
+  "stderr_errors": [],
+  "sentinel_seen": true,
+  "cmd": [
+    "D:\\Blender\\blender.exe",
+    "-b",
+    "--factory-startup",
+    "--python-exit-code",
+    "1",
+    "--python",
+    "docs/blender/create-logo.py",
+    "--"
+  ],
+  "stdout_tail": [
+    "22:22:18 | INFO: Finished glTF 2.0 export in 0.05043196678161621 s",
+    "00:10.906  render           | Saved: 'D:\\SAM HQ\\Chat GPT Projects\\HTML God\\docs\\assets\\html-god-logo.png'",
+    "",
+    "Info: Saved as \"html-god-logo.blend\"",
+    "EXPORTED HTML God logo, GLB, browser mesh, blend source and transparent poster",
+    "Blender 5.2.2 LTS (hash d13f752e3b9c built 2026-09-15 01:37:04)",
+    "",
+    "Blender quit"
+  ]
+}

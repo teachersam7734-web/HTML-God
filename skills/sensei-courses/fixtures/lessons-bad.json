@@ -1,0 +1,259 @@
+{
+ "lessons": [
+  {
+   "id": "b1",
+   "title": "Giveaway",
+   "qs": [
+    {
+     "type": "mcq",
+     "prompt": "Question 1?",
+     "options": [
+      "Alpha with the long correct wording",
+      "Bravo one",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 0,
+     "explain": "Because of paragraph 1."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 2?",
+     "options": [
+      "Alpha two",
+      "Bravo with the long correct wording",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 1,
+     "explain": "Because of paragraph 2."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 3?",
+     "options": [
+      "Alpha two",
+      "Bravo one",
+      "Charlie with the long correct wording",
+      "Delta one"
+     ],
+     "answer": 2,
+     "explain": "Because of paragraph 3."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 4?",
+     "options": [
+      "Alpha with the long correct wording",
+      "Bravo one",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 0,
+     "explain": "Because of paragraph 4."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 5?",
+     "options": [
+      "Alpha two",
+      "Bravo with the long correct wording",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 1,
+     "explain": "Because of paragraph 5."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 6?",
+     "options": [
+      "Alpha two",
+      "Bravo one",
+      "Charlie with the long correct wording",
+      "Delta one"
+     ],
+     "answer": 2,
+     "explain": "Because of paragraph 6."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 7?",
+     "options": [
+      "Alpha with the long correct wording",
+      "Bravo one",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 0,
+     "explain": "Because of paragraph 7."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 8?",
+     "options": [
+      "Alpha two",
+      "Bravo with the long correct wording",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 1,
+     "explain": "Because of paragraph 8."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 9?",
+     "options": [
+      "Alpha two",
+      "Bravo one",
+      "Charlie with the long correct wording",
+      "Delta one"
+     ],
+     "answer": 2,
+     "explain": "Because of paragraph 9."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 10?",
+     "options": [
+      "Alpha with the long correct wording",
+      "Bravo one",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 0,
+     "explain": "Because of paragraph 10."
+    }
+   ]
+  },
+  {
+   "id": "b2",
+   "title": "Broken",
+   "qs": [
+    {
+     "type": "mcq",
+     "prompt": "No explanation?",
+     "options": [
+      "a",
+      "b",
+      "c"
+     ],
+     "answer": 1
+    },
+    {
+     "type": "mcq",
+     "prompt": "Out of range?",
+     "options": [
+      "a",
+      "b",
+      "c"
+     ],
+     "answer": 3,
+     "explain": "x"
+    },
+    {
+     "type": "mcq",
+     "prompt": "Repeats?",
+     "options": [
+      "same",
+      "Same ",
+      "other"
+     ],
+     "answer": 0,
+     "explain": "x"
+    },
+    {
+     "type": "gap",
+     "prompt": "Gap?",
+     "answer": [],
+     "explain": "x"
+    },
+    {
+     "type": "order",
+     "prompt": "Order?",
+     "items": [
+      "a",
+      "b",
+      "c"
+     ],
+     "answer": [
+      0,
+      0,
+      2
+     ],
+     "explain": "x"
+    },
+    {
+     "type": "match",
+     "prompt": "Match?",
+     "pairs": [
+      [
+       "a",
+       "b"
+      ]
+     ],
+     "explain": "x"
+    },
+    {
+     "type": "multi",
+     "prompt": "Multi?",
+     "options": [
+      "a",
+      "b"
+     ],
+     "answer": [
+      5
+     ],
+     "explain": "x"
+    },
+    {
+     "type": "mcq",
+     "prompt": "",
+     "options": [
+      "a",
+      "b",
+      "c"
+     ],
+     "answer": 0,
+     "explain": "x"
+    }
+   ]
+  },
+  {
+   "id": "b2",
+   "title": "Duplicate id",
+   "qs": [
+    {
+     "type": "tfng",
+     "prompt": "Statement 1.",
+     "answer": 1,
+     "explain": "x"
+    },
+    {
+     "type": "tfng",
+     "prompt": "Statement 2.",
+     "answer": 0,
+     "explain": "x"
+    },
+    {
+     "type": "tfng",
+     "prompt": "Statement 3.",
+     "answer": 1,
+     "explain": "x"
+    },
+    {
+     "type": "tfng",
+     "prompt": "Statement 4.",
+     "answer": 0,
+     "explain": "x"
+    },
+    {
+     "type": "tfng",
+     "prompt": "Statement 5.",
+     "answer": 1,
+     "explain": "x"
+    }
+   ]
+  }
+ ]
+}

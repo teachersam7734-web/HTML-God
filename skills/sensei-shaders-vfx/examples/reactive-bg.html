@@ -1,0 +1,101 @@
+<!doctype html>
+<!--
+  reactive-bg.html: a full-screen shader background that answers the pointer and scrolling, behind real HTML text.
+  Raw WebGL2, domain-warped fbm. Every input is eased in JS with 1 - pow(k, dt) (same feel at any frame rate). Scroll
+  speed raises a "wind"; the wind is INTEGRATED in JS into a drift offset and the shader receives the sum, so the
+  picture never jumps when the wind changes (wind * t in the shader would). Reduced motion: no loop, one still frame,
+  redrawn only on resize. Pause control, pause when hidden or offscreen, context restore rebuilds the program.
+  ?t= and ?wind= / ?drift= / ?px= / ?py= set the inputs for tests; window.__seek(t) draws with the current inputs.
+  verified: Windows 10, Chrome 155 + SwiftShader: gate3d.mjs passed; the continuity check in the skill's
+            Verification section (changing wind does not move the frame at the same drift; wind * t would).
+  not verified: frame rate on a target device; touch and tilt (iOS tilt needs DeviceOrientationEvent.requestPermission()
+                from a gesture: ride the first tap).
+  Original code of this project, written from the technique recorded in SENSEI-LOG (Save The Damsel landing).
+-->
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reactive background</title>
+<style>
+  :root { --fg: #f2f6ff; --bg: #050812; }
+  html { background: var(--bg); color: var(--fg); font: 18px/1.6 system-ui, sans-serif; }
+  body { margin: 0; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: -1; }
+  main { max-width: 38rem; margin: 0 auto; padding: 30vh 1.5rem 120vh; }
+  h1 { font-size: 2.6rem; line-height: 1.1; margin: 0 0 1rem; text-shadow: 0 1px 12px #000a; }
+  p { background: #050812b3; padding: .8rem 1rem; border-radius: 10px; }   /* aim: 4.5:1 over the brightest frame; measure it with the contrast gate, not checked here */
+  button { position: fixed; left: 16px; bottom: 16px; font: inherit; font-size: 15px; color: var(--fg); background: #0a1124cc; border: 1px solid #8fb4ff; border-radius: 8px; padding: 8px 14px; min-height: 40px; }
+  button:focus-visible { outline: 2px solid #8fb4ff; outline-offset: 2px; }
+</style>
+<canvas id="c" aria-hidden="true"></canvas>
+<main><h1>A background that listens</h1><p>Move the pointer and scroll. The colour field leans toward the pointer and flows faster while you scroll, then settles.</p></main>
+<button id="pause" type="button" aria-pressed="false">Pause motion</button>
+<script>
+(() => {
+const FS = `#version 300 es
+precision highp float;
+uniform vec2 uRes, uPtr; uniform float uTime, uDrift, uScroll; out vec4 o;
+float hash(vec2 p){ p = fract(p * vec2(.1031, .1030)); p += dot(p, p.yx + 33.33); return fract((p.x + p.y) * p.x); }
+float vn(vec2 x){ vec2 i = floor(x), f = fract(x); f = f*f*(3. - 2.*f);
+  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
+float fbm(vec2 p){ float a = .5, s = 0.; for (int i = 0; i < 5; i++){ s += a * vn(p); p = p * 2.03 + 11.7; a *= .5; } return s; }
+void main(){
+  vec2 uv = (gl_FragCoord.xy - .5 * uRes) / uRes.y;
+  vec2 p = uv * 1.6 + vec2(uDrift, uScroll * .25);
+  p += (uPtr - uv) * .25 * exp(-dot(uPtr - uv, uPtr - uv) * 2.);         // the field leans toward the pointer
+  vec2 q = vec2(fbm(p + .07 * uTime), fbm(p + vec2(5.2, 1.3) - .05 * uTime));
+  float f = fbm(p + 2.2 * q);
+  vec3 col = mix(vec3(.02, .03, .08), vec3(.12, .22, .55), smoothstep(.25, .75, f));
+  col = mix(col, vec3(.55, .2, .5), smoothstep(.55, .95, length(q) * f));
+  o = vec4(pow(col, vec3(1. / 2.2)), 1.);                               // gamma once, on the final colour
+}`;
+const c = document.getElementById('c'), btn = document.getElementById('pause'), q = new URLSearchParams(location.search);
+const FIXED_T = q.has('t') ? +q.get('t') : null, mq = matchMedia('(prefers-reduced-motion: reduce)');
+const gl = c.getContext('webgl2', { antialias: false, alpha: false });
+if (!gl) { document.documentElement.style.background = 'radial-gradient(80% 80% at 60% 40%, #1d3a8c, #050812)'; window.__done = true; return; }
+let U = {};
+function init() {
+  const sh = (t, s) => { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
+  const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, `#version 300 es\nin vec2 a; void main(){ gl_Position = vec4(a, 0., 1.); }`)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr)); gl.useProgram(pr);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  for (const n of ['uRes', 'uPtr', 'uTime', 'uDrift', 'uScroll']) U[n] = gl.getUniformLocation(pr, n);
+}
+init();
+const SCALE = .5;                                   // fbm is fill-rate bound: half resolution, a soft field hides it
+function size() { const d = Math.min(devicePixelRatio || 1, 2) * SCALE; c.width = Math.max(2, innerWidth * d | 0); c.height = Math.max(2, innerHeight * d | 0); gl.viewport(0, 0, c.width, c.height); }
+// inputs: targets set by events, eased values drawn
+const S = { px: +(q.get('px') || 0), py: +(q.get('py') || 0), tpx: 0, tpy: 0, wind: +(q.get('wind') || 0), drift: +(q.get('drift') || 0), scroll: scrollY / innerHeight, tscroll: scrollY / innerHeight };
+S.tpx = S.px; S.tpy = S.py;
+let lastY = scrollY;
+addEventListener('pointermove', e => { if (mq.matches) return; const h = innerHeight; S.tpx = (e.clientX - innerWidth / 2) / h; S.tpy = (h / 2 - e.clientY) / h; kick(); });
+addEventListener('scroll', () => { const dy = scrollY - lastY; lastY = scrollY; S.tscroll = scrollY / innerHeight; if (!mq.matches) S.wind = Math.min(3, S.wind + Math.abs(dy) / innerHeight * 4); kick(); }, { passive: true });
+function draw(t) { gl.uniform2f(U.uRes, c.width, c.height); gl.uniform2f(U.uPtr, S.px, S.py); gl.uniform1f(U.uTime, t); gl.uniform1f(U.uDrift, S.drift); gl.uniform1f(U.uScroll, S.scroll); gl.drawArrays(gl.TRIANGLES, 0, 3); }
+window.__seek = draw; window.__state = S;
+let raf = 0, t0 = 0, el = 0, last = 0, paused = false, lost = false, onScreen = true;
+const live = () => FIXED_T === null && !mq.matches && !paused && !document.hidden && !lost && onScreen;
+function loop(now) {
+  raf = requestAnimationFrame(loop);
+  const dt = Math.min(.1, (now - (last || now)) / 1000); last = now; const ease = k => 1 - Math.pow(k, dt);
+  S.px += (S.tpx - S.px) * ease(.02); S.py += (S.tpy - S.py) * ease(.02); S.scroll += (S.tscroll - S.scroll) * ease(.01);
+  S.drift += (0.05 + S.wind) * dt * .2;                // integrate: the shader only ever sees the sum
+  S.wind *= Math.pow(.25, dt);                         // wind decays, the drift it caused stays
+  el = (now - t0) / 1000; draw(el);
+}
+function sync() {
+  if (!live() && raf) { cancelAnimationFrame(raf); raf = 0; }
+  if (!raf && !lost) draw(FIXED_T ?? (mq.matches ? 3 : el));
+  if (live() && !raf) { t0 = performance.now() - el * 1000; last = 0; raf = requestAnimationFrame(loop); }
+  btn.hidden = mq.matches || FIXED_T !== null; btn.textContent = paused ? 'Play motion' : 'Pause motion'; btn.setAttribute('aria-pressed', String(paused));
+}
+const kick = () => { if (!raf && live()) sync(); };
+btn.addEventListener('click', () => { paused = !paused; sync(); });
+mq.addEventListener('change', sync); document.addEventListener('visibilitychange', sync);
+new IntersectionObserver(es => { onScreen = es[0].isIntersecting; sync(); }).observe(c);
+c.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; sync(); });
+c.addEventListener('webglcontextrestored', () => { lost = false; init(); size(); sync(); });
+addEventListener('resize', () => { size(); if (!raf && !lost) draw(FIXED_T ?? (mq.matches ? 3 : el)); });
+size(); sync();
+window.__done = true;
+})();
+</script>
+</html>

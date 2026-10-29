@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en" data-theme="ink">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Theme set too late (must flash)</title>
+<!-- fixture: the theme is chosen by a script at the END of <body>, after the parser has inserted the body, so a light
+     system shows the dark theme first. test-tokens.mjs must see "ink" at body insertion under a light system.
+     verified: detected as intended (Chrome 155, Windows 10). -->
+<style>html[data-theme="ink"]{background:#0b0a14;color:#f4f2ff}html[data-theme="paper"]{background:#faf8f3;color:#17142b}</style></head>
+<body><main><h1>Late theme</h1><p>Text.</p></main>
+<script>document.documentElement.setAttribute("data-theme",matchMedia("(prefers-color-scheme: light)").matches?"paper":"ink");window.__done=true</script>
+</body></html>

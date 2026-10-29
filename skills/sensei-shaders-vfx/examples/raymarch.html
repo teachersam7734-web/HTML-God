@@ -1,0 +1,116 @@
+<!doctype html>
+<!--
+  raymarch.html: a full-screen raw WebGL2 shader, no library (the page is a few KB). Two moving spheres blended with
+  a smooth minimum, an fbm surface wobble, a fresnel rim, a gradient background; 64 raymarch steps at 0.9 of the
+  distance each. The render-scale governor (on by default, ?gov=0 off, ?s= starting scale) drops resolution quickly
+  when frames are slow, recovers slowly, and ignores stalls: it lowers pixels, never features. ?scale=1 pins the render
+  scale (governor off) for review captures, so a screenshot from a slow machine shows the target-device picture, not
+  the floor tier; ?scale=0.5 pins half resolution. window.__pinnedScale says which scale was pinned (null when not).
+  Context restore rebuilds the program and buffer (raw WebGL keeps nothing). Pointer moves the camera (eased in JS,
+  frame-rate independent), off under reduced motion. A visible Pause motion button (WCAG 2.2.2). window.__scales lists every governor step.
+  verified: Windows 10, Chrome 156 + SwiftShader (2026-10-28): gate3d.mjs passed with and without ?scale=1; with the pin
+            the canvas stayed at full width; without it the governor stepped down towards its
+            0.35 floor and stopped (steps in the skill's Verification section).
+  not verified: frame rate on any target GPU (the governor's whole point); 30 Hz power-saving displays.
+  Adapted from code-3d/raymarch.html in the HTML-Sensei build project's research notes (not shipped) and raymarch-gov.html (original code of this project).
+-->
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Raymarched background</title>
+<style>html,body{margin:0;height:100%;background:#031018;font:15px system-ui,sans-serif}canvas{display:block;width:100%;height:100%}
+button{position:fixed;left:16px;bottom:16px;font:inherit;color:#dff;background:#06141ccc;border:1px solid #4fc8ff;border-radius:8px;padding:8px 14px;min-height:40px}
+button:focus-visible{outline:2px solid #4fc8ff;outline-offset:2px}</style>
+<canvas id="c" aria-hidden="true"></canvas>
+<button id="pause" type="button" aria-pressed="false">Pause motion</button>
+<script>
+(() => {
+// colour space: raw WebGL has no colour management; gamma is applied once, to the final colour
+const FS = `#version 300 es
+precision highp float;
+uniform vec2 uRes; uniform float uTime; uniform vec2 uPtr;
+out vec4 o;
+float hash(vec3 p){ p = fract(p*.3183099 + .1); p *= 17.; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+float vnoise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f*f*(3.-2.*f);
+  return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z); }
+float fbm(vec3 p){ float a = .5, s = 0.; for (int i = 0; i < 5; i++){ s += a*vnoise(p); p = p*2.02 + 7.1; a *= .5; } return s; }
+float smin(float a, float b, float k){ float h = max(k - abs(a-b), 0.)/k; return min(a, b) - h*h*k*.25; }
+float map(vec3 p){ float t = uTime;
+  float s1 = length(p - vec3(sin(t*.7)*.9, cos(t*.9)*.5, 0.)) - .55;
+  float s2 = length(p - vec3(cos(t*.5)*.8, sin(t*.6)*.7, .3)) - .45;
+  return smin(s1, s2, .5) + .06*fbm(p*3. + t*.3); }
+vec3 nrm(vec3 p){ vec2 e = vec2(.002, 0);
+  return normalize(vec3(map(p+e.xyy)-map(p-e.xyy), map(p+e.yxy)-map(p-e.yxy), map(p+e.yyx)-map(p-e.yyx))); }
+void main(){
+  vec2 uv = (gl_FragCoord.xy - .5*uRes) / uRes.y;
+  vec3 ro = vec3(uPtr*.6, -3.), rd = normalize(vec3(uv, 1.5));
+  float tt = 0.; bool hit = false; vec3 p;
+  for (int i = 0; i < 64; i++){ p = ro + rd*tt; float d = map(p); if (d < .002){ hit = true; break; } tt += d*.9; if (tt > 8.) break; }
+  vec3 col = mix(vec3(.004,.008,.016), vec3(.01,.04,.07), smoothstep(-.6, .8, uv.y)) + .02*fbm(vec3(uv*3., uTime*.1));
+  if (hit){ vec3 n = nrm(p); float fr = pow(1. - max(dot(n, -rd), 0.), 3.);
+    col = vec3(.05,.2,.3)*(.4 + .6*max(dot(n, normalize(vec3(.5,.8,-.6))), 0.)) + vec3(.2,.8,1.)*fr; }
+  o = vec4(pow(col, vec3(1./2.2)), 1.);
+}`;
+const VS = `#version 300 es
+in vec2 a; void main(){ gl_Position = vec4(a, 0., 1.); }`;
+const c = document.getElementById('c'), q = new URLSearchParams(location.search);
+const FIXED_T = q.has('t') ? +q.get('t') : null, mq = matchMedia('(prefers-reduced-motion: reduce)');
+const gl = c.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance' });
+if (!gl) { document.body.style.background = 'linear-gradient(#031018,#0a2a3a)'; window.__done = true; return; }   // static fallback
+let prog, U = {};
+function init() {                                       // everything the GPU holds; called again after a context restore
+  const sh = (t, s) => { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x);
+    if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
+  prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);   // one triangle covers the screen
+  const loc = gl.getAttribLocation(prog, 'a'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  for (const n of ['uRes', 'uTime', 'uPtr']) U[n] = gl.getUniformLocation(prog, n);
+}
+init();
+// ?scale=N pins the render scale and switches the governor off: captures for review show full resolution however
+// slow this machine is (the owner's rule: judge by the target device). Frame rate is reported separately.
+const pin = q.has('scale') && +q.get('scale') > 0 ? Math.min(2, +q.get('scale')) : null;
+window.__pinnedScale = pin;
+let scale = pin ?? +(q.get('s') || 1);
+function size() { const d = Math.min(devicePixelRatio || 1, 2) * scale;
+  c.width = Math.max(2, c.clientWidth * d | 0); c.height = Math.max(2, c.clientHeight * d | 0); gl.viewport(0, 0, c.width, c.height); }
+function makeGovernor({ min = .35, max = 1, fps = 55, onScale }) {  // drop quickly, recover slowly, ignore stalls
+  const target = 1000 / fps; let s = max, avg = target, last = 0, cool = 20;
+  return { get scale() { return s; }, set scale(v) { s = v; }, reset() { last = 0; },
+    tick(now) { if (!last) { last = now; return; } const dt = now - last; last = now; if (dt > 250) return;   // stall guard
+      avg = avg * .9 + dt * .1; if (--cool > 0) return;
+      if (avg > target * 1.25 && s > min) { s = Math.max(min, s * .85); cool = 30; onScale(s); }
+      else if (avg < target * .8 && s < max) { s = Math.min(max, s * 1.06); cool = 90; onScale(s); } } };
+}
+window.__scales = [];
+const gov = q.get('gov') === '0' || pin !== null ? null : makeGovernor({ onScale: v => { scale = v; size(); window.__scales.push(+v.toFixed(2)); } });
+if (gov) gov.scale = scale;
+const ptr = { x: 0, y: 0, tx: 0, ty: 0 };
+addEventListener('pointermove', e => { if (mq.matches) return; ptr.tx = e.clientX / innerWidth * 2 - 1; ptr.ty = 1 - e.clientY / innerHeight * 2; });
+function draw(t) { gl.uniform2f(U.uRes, c.width, c.height); gl.uniform1f(U.uTime, t); gl.uniform2f(U.uPtr, ptr.x, ptr.y); gl.drawArrays(gl.TRIANGLES, 0, 3); }
+window.__seek = draw;
+let raf = 0, t0 = 0, el = 0, lastNow = 0, lost = false, paused = false;
+const btn = document.getElementById('pause');
+const live = () => FIXED_T === null && !mq.matches && !document.hidden && !lost && !paused;
+function loop(now) { raf = requestAnimationFrame(loop);
+  const dt = Math.min(.1, (now - (lastNow || now)) / 1000); lastNow = now;
+  const k = 1 - Math.pow(.001, dt); ptr.x += (ptr.tx - ptr.x) * k; ptr.y += (ptr.ty - ptr.y) * k;   // 1 - pow(k, dt): same feel at any frame rate
+  if (gov) gov.tick(now); el = (now - t0) / 1000; draw(el); }
+function sync() {
+  if (!live() && raf) { cancelAnimationFrame(raf); raf = 0; }
+  if (!raf && !lost) draw(FIXED_T ?? (mq.matches ? 2 : el));
+  if (live() && !raf) { t0 = performance.now() - el * 1000; lastNow = 0; if (gov) gov.reset(); raf = requestAnimationFrame(loop); }
+  btn.hidden = mq.matches || FIXED_T !== null; btn.textContent = paused ? 'Play motion' : 'Pause motion'; btn.setAttribute('aria-pressed', String(paused));
+}
+btn.addEventListener('click', () => { paused = !paused; sync(); });
+new ResizeObserver(() => { size(); if (!raf && !lost) draw(FIXED_T ?? (mq.matches ? 2 : el)); }).observe(c); size();
+mq.addEventListener('change', sync); document.addEventListener('visibilitychange', sync);
+c.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; sync(); });
+c.addEventListener('webglcontextrestored', () => { lost = false; init(); size(); sync(); });
+sync();
+window.__done = true;
+})();
+</script>
+</html>

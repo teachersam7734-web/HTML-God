@@ -1,0 +1,19 @@
+<!doctype html>
+<!-- Fixture: a film page that keeps the seek contract (frame N is a pure function of t). Should lint clean. -->
+<html><head><meta charset="utf-8"><style>
+  .title { position: absolute; }
+  @media (prefers-reduced-motion: reduce) { .title { opacity: 1; } }
+</style></head>
+<body><div class="title">Title</div>
+<script>
+  function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let r = Math.imul(a ^ a >>> 15, 1 | a); r = r + Math.imul(r ^ r >>> 7, 61 | r) ^ r; return ((r ^ r >>> 14) >>> 0) / 4294967296; }; }
+  const rand = mulberry32(7); const jitter = Array.from({ length: 240 }, () => rand() * 4);
+  const ease = u => 1 - Math.pow(1 - Math.min(Math.max(u, 0), 1), 3);
+  window.seek = t => {
+    const el = document.querySelector('.title');
+    el.style.transform = `scale(${1.4 - 0.4 * ease(t / 0.6)})`;
+    el.style.left = jitter[Math.floor(t * 24) % 240] + 'px';
+    document.body.classList.toggle('late', t >= 1.2);
+  };
+</script>
+</body></html>

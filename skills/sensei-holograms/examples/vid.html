@@ -1,0 +1,80 @@
+<!doctype html>
+<!--
+  vid.html: a video hologram from an alpha-packed MP4: colour in the left half of each frame, the matte as greyscale
+  in the right half (ordinary H.264, plays everywhere, no green fringe). The shader samples both halves with a
+  half-texel inset (computed from the real video size) so bilinear filtering never bleeds across the seam, adds a
+  light hologram treatment, and writes premultiplied alpha with a premultiplied "over" blend.
+  The MP4 is carried as base64 and turned into a Blob URL (reliable seeking; never src=""). Muted, playsInline, loop.
+  Live: the video plays and each new frame is drawn. ?t=: paused and seeked, the frame drawn after "seeked".
+  Reduced motion: paused on a still frame. Teardown pauses the video (a removed <video> keeps playing its sound).
+  Make the MP4 (any ffmpeg):
+    ffmpeg -i colour.mp4 -i matte.mp4 -filter_complex "[1]format=gray,format=yuv420p[m];[0][m]hstack=2,format=yuv420p" \
+      -c:v libx264 -crf 20 -movflags +faststart packed.mp4
+  Build: node ../../sensei-3d/scripts/build-vendor.mjs vendor entry-vid.js
+         node ../../sensei-3d/scripts/pack-data.mjs vendor/vdata.js VIDEO packed=packed.mp4
+  verified: Windows 10, Chrome 155 + SwiftShader, three 0.186.1, with the lane's 2 s 512 x 256 test clip (a moving
+            disc, 25 KB): gate3d.mjs passed (two seek times differ, live playback animates, reduced motion still,
+            context loss round trip, no network); clean transparent edge inspected.
+  not verified: real footage; Safari (needs playsInline, untested here); long clips embedded as base64 (memory).
+  Adapted from code-3d/vid.html in the HTML-Sensei build project's research notes (not shipped) (original code of this project).
+-->
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Video hologram</title>
+<style>html,body{margin:0;height:100%;background:#0b1020}canvas{display:block;width:100%;height:100%}</style>
+<canvas id="c" role="img" aria-label="A presenter shown as a hologram"></canvas>
+<script src="vendor/t-vid.js"></script><script src="vendor/vdata.js"></script>
+<script>
+(async () => {
+const { WebGLRenderer, Scene, PerspectiveCamera, ShaderMaterial, Mesh, PlaneGeometry, VideoTexture, SRGBColorSpace, LinearFilter, CustomBlending, OneFactor, OneMinusSrcAlphaFactor, Color } = T;
+const q = new URLSearchParams(location.search), FIXED_T = q.has('t') ? +q.get('t') : null;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const canvas = document.getElementById('c'), r = new WebGLRenderer({ canvas, antialias: true });
+const scene = new Scene(), cam = new PerspectiveCamera(35, 2, .1, 50); cam.position.set(0, 0, 5);
+const bytes = Uint8Array.from(atob(VIDEO.packed), c => c.charCodeAt(0));
+const v = document.createElement('video');
+v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'auto';
+v.src = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
+await new Promise((res, rej) => { v.addEventListener('loadeddata', res, { once: true }); v.addEventListener('error', () => rej(new Error('video decode failed')), { once: true }); });
+const tex = new VideoTexture(v); tex.colorSpace = SRGBColorSpace; tex.minFilter = tex.magFilter = LinearFilter; tex.generateMipmaps = false;
+const mat = new ShaderMaterial({ transparent: true, depthWrite: false, blending: CustomBlending, blendSrc: OneFactor, blendDst: OneMinusSrcAlphaFactor,
+  uniforms: { uMap: { value: tex }, uHalf: { value: [.5 / v.videoWidth, .5 / v.videoHeight] }, uTint: { value: new Color('#7fe8ff') }, uMix: { value: .35 }, uTime: { value: 0 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform sampler2D uMap; uniform vec2 uHalf; uniform vec3 uTint; uniform float uMix, uTime; varying vec2 vUv;
+    void main(){
+      vec2 uc = vec2(clamp(vUv.x * .5, uHalf.x, .5 - uHalf.x), vUv.y);            // colour half, inset half a texel
+      vec2 ua = vec2(clamp(.5 + vUv.x * .5, .5 + uHalf.x, 1. - uHalf.x), vUv.y);   // matte half
+      vec3 c = texture2D(uMap, uc).rgb; float a = texture2D(uMap, ua).r;
+      float scan = .85 + .15 * sin(vUv.y * 220. - uTime * 8.);
+      c = mix(c, uTint * dot(c, vec3(.3, .59, .11)) * 1.6, uMix) * scan;
+      gl_FragColor = vec4(c * a, a);                                               // premultiplied
+    }` });
+const aspect = (v.videoWidth / 2) / v.videoHeight;
+const m = new Mesh(new PlaneGeometry(3 * aspect, 3), mat); scene.add(m);
+function draw(t) { mat.uniforms.uTime.value = t; r.setClearColor(0x0b1020, 1); r.render(scene, cam); }
+function size() { const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return; r.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); r.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); draw(v.currentTime); }
+// Resolve when the sought frame is actually presented, not after a guessed wait:
+// requestVideoFrameCallback fires for that frame; 'seeked' is the fallback.
+const seekTo = t => new Promise(res => {
+  v.pause();
+  if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => res());
+  else v.addEventListener('seeked', () => res(), { once: true });
+  v.currentTime = t % v.duration;
+});
+window.__seek = async t => { await seekTo(t); tex.needsUpdate = true; draw(t); };
+new ResizeObserver(size).observe(canvas); size();
+let raf = 0;
+const live = () => FIXED_T === null && !reduce && !document.hidden;
+const loop = () => { raf = requestAnimationFrame(loop); draw(v.currentTime); };
+async function sync() {
+  if (live()) { if (v.paused) await v.play().catch(() => {}); if (!raf) raf = requestAnimationFrame(loop); }
+  else { cancelAnimationFrame(raf); raf = 0; v.pause(); }
+}
+document.addEventListener('visibilitychange', sync);
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); cancelAnimationFrame(raf); raf = 0; });
+canvas.addEventListener('webglcontextrestored', () => { if (live()) sync(); else draw(v.currentTime); });
+window.__teardown = () => { cancelAnimationFrame(raf); raf = 0; v.pause(); v.removeAttribute('src'); v.load(); tex.dispose(); mat.dispose(); r.dispose(); };
+if (FIXED_T !== null || reduce) await window.__seek(FIXED_T ?? .5); else { await sync(); draw(v.currentTime); }
+window.__done = true;
+})().catch(e => { console.error('ERR ' + e.message); window.__done = true; });
+</script>
+</html>

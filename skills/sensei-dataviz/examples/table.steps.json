@@ -1,0 +1,9 @@
+[
+  { "do": "click", "sel": "button[data-k=v]" },
+  { "do": "wait", "ms": 200 },
+  { "do": "eval", "expr": "document.querySelector('button[data-k=v]').parentElement.getAttribute('aria-sort')", "expect": "ascending" },
+  { "do": "fill", "sel": "#q", "value": "kyiv" },
+  { "do": "wait", "ms": 400 },
+  { "do": "eval", "expr": "window.__table.rows()", "expect": "25000" },
+  { "do": "shot", "name": "filtered" }
+]

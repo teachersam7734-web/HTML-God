@@ -1,0 +1,11 @@
+{
+  "template": "template.html",
+  "out": "dist/course.html",
+  "slots": {
+    "FONTS": { "kind": "fonts", "faces": [] },
+    "CSS": { "path": "style.css", "kind": "css" },
+    "LESSONS": { "path": "lessons.json", "kind": "json" },
+    "APP": { "path": "app.js", "kind": "js" },
+    "FILM": { "path": "media/film.webm", "kind": "base64", "optional": true }
+  }
+}

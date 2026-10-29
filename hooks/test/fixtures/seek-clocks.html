@@ -1,0 +1,12 @@
+<!doctype html>
+<!-- Fixture (QC finding 12): three clocks the old rule missed (crypto.randomUUID, document.timeline.currentTime,
+     performance.timeOrigin). Must warn on each. -->
+<html lang="en"><head><meta charset="utf-8"><title>Seek clocks</title></head><body><div id="o"></div>
+<script>
+  const id = crypto.randomUUID();
+  window.seek = t => {
+    const wall = document.timeline.currentTime;
+    const origin = performance.timeOrigin;
+    document.getElementById('o').textContent = id + wall + origin + t;
+  };
+</script></body></html>

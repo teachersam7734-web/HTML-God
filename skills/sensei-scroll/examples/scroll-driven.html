@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scroll-driven recipes</title>
+<!--
+  scroll-driven.html: the native scroll recipes in one offline file, CSS first, with a hand-rolled WAAPI fallback for
+  engines without animation-timeline (?force=1 runs the fallback in Chromium so the two can be compared).
+  Recipes: progress bar (root scroll()), reveal on entry (view()), parallax (view() cover), pinned horizontal track
+  (named view-timeline, contain range), scrollytelling stage with text steps passing over it and a discrete step label
+  (IntersectionObserver), proximity snap in a focusable region, stuck-state nav (scroll-state container query), print
+  reset, reduced-motion end states.
+  verified: Windows 10, Node 24, Chrome headless via playwright-core 1.62 with swiftshader: ../scripts/test-scroll.mjs
+            (every assertion: positions at seven stops, native against forced fallback, reduced motion, print, anchors);
+            sensei-verify's sensei-gate.mjs in strict file://.
+  not verified: Firefox (no animation-timeline by default: the fallback path is what it gets, proved only by forcing it
+            in Chromium) and Safari; real phones and frame rates; smooth inertial scrolling (none here).
+  Origin: code-interaction/scroll-driven.html in the HTML-Sensei build project's research notes (not shipped) (HTML-Sensei's own code, lane D2). Changed here:
+          the snap box is a named, focusable region; the reduced-motion horizontal section wraps instead of becoming a
+          second scroller; story steps and a discrete step label added; a print reset; a nav with anchors and
+          scroll-padding for the sticky bar.
+-->
+<style>
+:root{--bg:#0e0f13;--fg:#f2efe8;--ac:#ffb454;--ac2:#6ee7b7;--panel:#1b1d25}
+*{box-sizing:border-box}
+html{background:var(--bg);color:var(--fg);font:18px/1.5 system-ui,sans-serif;scroll-padding-top:3.5rem}
+body{margin:0}
+section{padding:12vh 8vw}
+a{color:var(--ac)}
+:focus-visible{outline:3px solid var(--ac2);outline-offset:3px}
+
+/* 1. Progress bar: root scroll() timeline. transform-origin + scaleX, never width. */
+#bar{position:fixed;inset:0 0 auto 0;height:4px;background:var(--ac);transform-origin:0 50%;transform:scaleX(0);z-index:9}
+@keyframes grow{to{transform:scaleX(1)}}
+@supports (animation-timeline:scroll()){
+  #bar{animation:grow linear both;animation-timeline:scroll(root block)}
+}
+
+/* 2. Reveal on view(): fill both so the start state exists before entry. The timeline comes after the shorthand. */
+.reveal{opacity:0;translate:0 40px;min-height:30vh;background:var(--panel);border-radius:16px;padding:2rem;margin:10vh 0}
+@keyframes rise{to{opacity:1;translate:0 0}}
+@supports (animation-timeline:view()){
+  .reveal,.story .step{opacity:0;translate:0 40px;animation:rise linear both;animation-timeline:view(block 0px);animation-range:entry 0% entry 60%}
+}
+/* No support: content must not stay invisible */
+@supports not (animation-timeline:view()){ .reveal{opacity:1;translate:none} }
+
+/* 3. Parallax: the layer moves slower than the page, driven by the frame's own view(); inset -25% covers 12% travel. */
+.px{position:relative;height:70vh;overflow:clip;border-radius:16px;background:#14161c}
+.px .layer{position:absolute;inset:-25% 0;background:linear-gradient(120deg,var(--ac),var(--ac2));opacity:.35}
+@keyframes drift{from{translate:0 -12%}to{translate:0 12%}}
+@supports (animation-timeline:view()){
+  .px .layer{animation:drift linear both;animation-timeline:view(block 0px);animation-range:cover}
+}
+
+/* 4. Horizontal section: tall outer, sticky inner, track moved by the OUTER's contain range.
+      width:max-content or -100% is one viewport and the track never moves. overflow:clip, never hidden, on the pin. */
+.hs{height:400vh;position:relative}
+.hs .pin{position:sticky;top:0;height:100vh;overflow:clip;display:flex;align-items:center}
+.hs .track{display:flex;gap:4vw;padding-inline:8vw;width:max-content;will-change:transform}
+.hs .card{flex:none;width:60vw;height:50vh;border-radius:20px;background:var(--panel);display:grid;place-items:center;font-size:3rem}
+@keyframes slide{to{translate:calc(-100% + 100vw) 0}}
+@supports (animation-timeline:view()){
+  .hs{view-timeline:--hs block;view-timeline-inset:0px}
+  .hs .track{animation:slide linear both;animation-timeline:--hs;animation-range:contain 0% contain 100%}
+}
+
+/* 5. Scrollytelling: one sticky stage, text steps scroll over it, the stage reacts to the story's named timeline.
+      The step label is discrete state, set by an IntersectionObserver (script below), not by a timeline. */
+.story{height:300vh;position:relative}
+.story .stage{position:sticky;top:0;height:100vh;display:grid;place-items:center}
+.story .orb{width:30vmin;height:30vmin;border-radius:50%;background:var(--ac);will-change:transform}
+.story .label{position:absolute;inset-block-end:8vh;inset-inline-start:8vw;margin:0;font-size:.9rem;opacity:.85}
+@keyframes orb{0%{scale:.4;background:var(--ac)}50%{scale:1;background:var(--ac2)}100%{scale:.6;background:#a78bfa}}
+@supports (animation-timeline:view()){
+  .story{view-timeline:--story block;view-timeline-inset:0px}
+  .story .orb{animation:orb linear both;animation-timeline:--story;animation-range:contain 0% contain 100%}
+}
+.story .steps{position:relative;z-index:1}
+.story .step{block-size:60vh;display:grid;align-items:center;margin-inline:auto 8vw;inline-size:min(28rem,84vw)}
+.story .step p{margin:0;padding:1.25rem 1.5rem;border-radius:14px;background:#000c}
+
+/* 6. Snap: proximity so users are not trapped; the scroller is a named region that takes focus (keyboard scrolling). */
+.snapper{height:60vh;overflow-y:auto;scroll-snap-type:y proximity;border:1px solid #555;border-radius:12px}
+.snapper>div{height:60vh;scroll-snap-align:start;display:grid;place-items:center;font-size:2rem}
+.snapper>div:nth-child(odd){background:#161820}
+
+/* 7. Sticky stuck-state with a scroll-state container query (Chromium; progressive enhancement). */
+.sticky-wrap{container-type:scroll-state;position:sticky;top:0;z-index:5}
+.sticky-wrap .nav{padding:.75rem 8vw;background:transparent;transition:background .2s;display:flex;flex-wrap:wrap;gap:.25rem 1.25rem}
+@container scroll-state(stuck:top){ .sticky-wrap .nav{background:#000c} }
+
+/* Reduced motion: scroll-linked motion removed, end states shown, the horizontal section becomes ordinary wrapped flow. */
+@media (prefers-reduced-motion:reduce){
+  #bar{animation:none;transform:scaleX(1);opacity:.4}
+  .reveal,.story .step{animation:none;opacity:1;translate:none}
+  .px .layer{animation:none;translate:0 0}
+  .hs{height:auto}
+  .hs .pin{position:static;height:auto;padding-block:4vh}
+  .hs .track{animation:none;translate:none;width:auto;flex-wrap:wrap;gap:4vw}
+  .hs .card{width:min(60vw,24rem);height:auto;aspect-ratio:4/3}
+  .story .orb{animation:none;scale:1}
+}
+/* Print: no timeline runs on paper. Show every end state. */
+@media print{
+  #bar,.sticky-wrap{display:none}
+  .reveal,.story .step{animation:none!important;opacity:1;translate:none}
+  .hs,.story{height:auto}.hs .pin,.story .stage{position:static;height:auto}
+  .hs .track{animation:none!important;translate:none;width:auto;flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+<div id="bar" aria-hidden="true"></div>
+<div class="sticky-wrap"><nav class="nav" aria-label="Sections"><a href="#reveals">Reveals</a><a href="#parallax">Parallax</a><a href="#hs">Horizontal</a><a href="#story">Story</a><a href="#snap">Snap</a></nav></div>
+<main>
+<section><h1>Scroll-driven recipes</h1><p>Scroll down. Every effect here is CSS; the script is only the fallback and the step label.</p></section>
+<section id="reveals" aria-label="Reveals"><div class="reveal" id="r1">Reveal one</div><div class="reveal" id="r2">Reveal two</div></section>
+<section id="parallax" aria-label="Parallax"><div class="px"><div class="layer" id="layer"></div></div></section>
+<div class="hs" id="hs" role="region" aria-label="Horizontal cards"><div class="pin"><div class="track" id="track"><div class="card">1</div><div class="card">2</div><div class="card">3</div><div class="card">4</div></div></div></div>
+<div class="story" id="story" role="region" aria-label="Story">
+  <div class="stage"><div class="orb" id="orb"></div><p class="label" id="label" aria-hidden="true">Step 1 of 3</p></div>
+  <div class="steps">
+    <div class="step" data-step="1"><p>Step one: the orb is small and warm.</p></div>
+    <div class="step" data-step="2"><p>Step two: it grows and turns green at the middle of the story.</p></div>
+    <div class="step" data-step="3"><p>Step three: it settles, smaller and violet.</p></div>
+  </div>
+</div>
+<section id="snap" aria-label="Snap"><div class="snapper" tabindex="0" role="region" aria-label="Snap points"><div>Snap A</div><div>Snap B</div><div>Snap C</div></div></section>
+<section style="height:60vh"><p>End.</p></section>
+</main>
+
+<script>
+/* Discrete scrollytelling state: the step in the middle band of the viewport names the stage's label. Works with or
+   without native timelines and under reduced motion (it changes text, not motion). */
+(function(){
+  var label=document.getElementById('label');
+  if(!('IntersectionObserver' in window)) return;
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){
+    if(e.isIntersecting){var n=e.target.getAttribute('data-step');label.textContent='Step '+n+' of 3';document.getElementById('story').setAttribute('data-step',n)}
+  })},{rootMargin:'-45% 0px -45% 0px'});
+  [].forEach.call(document.querySelectorAll('.step'),function(s){io.observe(s)});
+})();
+
+/* JS fallback for engines without animation-timeline (Firefox by default at the time of writing).
+   Same keyframes, a paused Web Animation whose currentTime is set from scroll progress.
+   ?force=1 runs it even in Chromium so it can be compared with the native result. */
+(function(){
+  var native = CSS.supports('animation-timeline','scroll()') && !/[?&]force=1/.test(location.search);
+  window.__mode = native ? 'native' : 'fallback';
+  if (native) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // Kill the CSS that targeted native timelines (only matters when forced), then re-create with WAAPI.
+  var st=document.createElement('style');
+  st.textContent='#bar,.reveal,.px .layer,.hs .track,.story .orb,.story .step{animation:none!important}';
+  document.head.appendChild(st);
+  var items = [
+    {el:'#bar', kf:[{transform:'scaleX(0)'},{transform:'scaleX(1)'}], range:function(){return [0, document.documentElement.scrollHeight-innerHeight]}},
+    {el:'#layer', kf:[{translate:'0 -12%'},{translate:'0 12%'}], range:cover('.px')},
+    {el:'#track', kf:[{translate:'0 0'},{translate:function(){return (-(document.getElementById('track').scrollWidth - innerWidth))+'px 0'}}], range:contain('#hs')},
+    {el:'#orb', kf:[{scale:.4,background:'#ffb454'},{scale:1,background:'#6ee7b7'},{scale:.6,background:'#a78bfa'}], range:contain('#story')}
+  ];
+  function pageY(e){var r=e.getBoundingClientRect();return r.top+scrollY}
+  function cover(sel){return function(){var e=document.querySelector(sel),t=pageY(e);return [t-innerHeight, t+e.offsetHeight]}}
+  function contain(sel){return function(){var e=document.querySelector(sel),t=pageY(e);return [t, t+e.offsetHeight-innerHeight]}}
+  items.forEach(function(it){
+    var el=document.querySelector(it.el);
+    var kf=it.kf.map(function(k){var o={};for(var p in k)o[p]=typeof k[p]==='function'?k[p]():k[p];return o});
+    it.anim=el.animate(kf,{duration:1000,fill:'both',easing:'linear'});it.anim.pause();
+  });
+  var reveals=[].slice.call(document.querySelectorAll('.reveal,.story .step')).map(function(el){
+    var a=el.animate([{opacity:0,translate:'0 40px'},{opacity:1,translate:'0 0'}],{duration:1000,fill:'both',easing:'linear'});a.pause();return {el:el,a:a};
+  });
+  function tick(){
+    items.forEach(function(it){var r=it.range(),p=(scrollY-r[0])/(r[1]-r[0]);it.anim.currentTime=Math.max(0,Math.min(1,p))*1000});
+    reveals.forEach(function(v){var b=v.el.getBoundingClientRect(),h=b.height,
+      // entry 0%..60%: from the top edge entering the bottom of the viewport until 60% of its height is inside
+      p=(innerHeight-b.top)/(h*0.6);v.a.currentTime=Math.max(0,Math.min(1,p))*1000});
+  }
+  var ticking=false;
+  addEventListener('scroll',function(){if(!ticking){ticking=true;requestAnimationFrame(function(){ticking=false;tick()})}},{passive:true});
+  addEventListener('resize',tick);tick();
+})();
+</script>
+</body>
+</html>

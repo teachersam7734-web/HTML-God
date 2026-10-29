@@ -1,0 +1,170 @@
+{
+ "lessons": [
+  {
+   "id": "g1",
+   "title": "Good one",
+   "qs": [
+    {
+     "type": "mcq",
+     "prompt": "Question 1?",
+     "options": [
+      "Alpha two",
+      "Bravo one",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 0,
+     "explain": "Because of paragraph 1."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 2?",
+     "options": [
+      "Alpha two",
+      "Bravo one",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 1,
+     "explain": "Because of paragraph 2."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 3?",
+     "options": [
+      "Alpha two",
+      "Bravo one",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 2,
+     "explain": "Because of paragraph 3."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 4?",
+     "options": [
+      "Alpha two",
+      "Bravo one",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 3,
+     "explain": "Because of paragraph 4."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 5?",
+     "options": [
+      "Alpha two",
+      "Bravo one",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 0,
+     "explain": "Because of paragraph 5."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 6?",
+     "options": [
+      "Alpha two",
+      "Bravo one",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 1,
+     "explain": "Because of paragraph 6."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 7?",
+     "options": [
+      "Alpha two",
+      "Bravo one",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 2,
+     "explain": "Because of paragraph 7."
+    },
+    {
+     "type": "mcq",
+     "prompt": "Question 8?",
+     "options": [
+      "Alpha two",
+      "Bravo one",
+      "Charlie two",
+      "Delta one"
+     ],
+     "answer": 3,
+     "explain": "Because of paragraph 8."
+    },
+    {
+     "type": "tfng",
+     "prompt": "The text says X.",
+     "answer": 2,
+     "explain": "Not stated."
+    },
+    {
+     "type": "gap",
+     "prompt": "Fill ____ .",
+     "answer": [
+      "word"
+     ],
+     "explain": "Word."
+    }
+   ]
+  },
+  {
+   "id": "g2",
+   "title": "Good two",
+   "qs": [
+    {
+     "type": "order",
+     "prompt": "Order.",
+     "items": [
+      "a",
+      "b",
+      "c"
+     ],
+     "answer": [
+      0,
+      1,
+      2
+     ],
+     "explain": "a b c."
+    },
+    {
+     "type": "match",
+     "prompt": "Match.",
+     "pairs": [
+      [
+       "x",
+       "1"
+      ],
+      [
+       "y",
+       "2"
+      ]
+     ],
+     "explain": "x1 y2."
+    },
+    {
+     "type": "multi",
+     "prompt": "Pick.",
+     "options": [
+      "p",
+      "q",
+      "r"
+     ],
+     "answer": [
+      0,
+      2
+     ],
+     "explain": "p and r."
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,153 @@
+{
+  "skill_name": "goat-html",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Build me a single-file HTML flashcard app for 30 Spanish vocabulary words with progress tracking. It should look cinematic but stay under 200 KB.",
+      "expected_output": "One HTML file under 200 KB with a design read, hash router (cards/progress routes), versioned localStorage store wrapped in try/catch, 30-entry DB in one documented shape, synthesised SFX (no audio assets), overlay stack, and a passed verify_html.py run.",
+      "files": [],
+      "assertions": [
+        "Output is exactly one .html file",
+        "File size <= 200 KB",
+        "verify_html.py --strict exits 0",
+        "localStorage key contains a version suffix",
+        "No data:image or data:audio URIs larger than 30 KB",
+        "matchMedia('(prefers-reduced-motion: reduce)') referenced in source"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Here is my logo (logo.png, 2400x1800). Put it in my existing page.html in the header slot. It should not lose quality.",
+      "expected_output": "The logo is resized to fit (never cropped), converted and embedded as exactly one base64 data URI in the header <img>, file-size delta reported, and the swap verified by counting URIs.",
+      "files": [
+        "logo.png",
+        "page.html"
+      ],
+      "assertions": [
+        "Exactly one new data:image URI in page.html after the change",
+        "Embedded image dimensions <= 3x the CSS display size stated in the reply",
+        "No other content of page.html was modified (diff limited to the img tag)",
+        "The reply reports before/after file sizes"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "This single-file course app (course.html) broke: the quiz stops after question 2 and the progress ring is empty. Fix it without changing the visual design.",
+      "expected_output": "Agent serves the file, reproduces in a browser tab, reads console/network, identifies the cause (e.g. an exception in the quiz loop or an empty store read), fixes minimally, and re-verifies: full quiz walk + progress render with zero console errors.",
+      "files": [
+        "course.html"
+      ],
+      "assertions": [
+        "Reply cites evidence from a served browser session (console output quoted)",
+        "No wholesale rewrites of unrelated sections (diff is minimal)",
+        "verify_html.py --strict exits 0 after the fix",
+        "Reply walks the quiz flow to completion in the verification step"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "I have a 3-minute song (song.mp3) and 14 lyric lines in lyrics.txt. Make me a single HTML file like a music video with the lyrics synced, some 3D or particles reacting to the beat, and the song embedded so it works offline.",
+      "expected_output": "A music-video build in one file: ffmpeg-derived (or carefully calibrated) lyric timestamps, SCENES/LY data structures, WebAudio analyser driving CSS vars and/or three.js, audio inlined as data:audio/mpeg, no network requests, a reduced-motion path, the final weight reported as information (no budget unless the user asked), and lyric-sync calibration tooling or [ ] nudge support.",
+      "files": [
+        "song.mp3",
+        "lyrics.txt"
+      ],
+      "assertions": [
+        "Final file is a single .html with the audio embedded (no external src)",
+        "Lyric data uses time fields (not line-order guesswork); reply explains how timestamps were derived",
+        "An analyser connects audio to at least one visual parameter",
+        "verify_html.py --strict --offline exits 0 (no network references)",
+        "Reply reports the final file weight as information and does not cut quality to meet an unrequested budget",
+        "prefers-reduced-motion is handled: lyrics still advance, pulsing and camera motion stop"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Redesign the look of my dashboard.html; it looks AI-generated. Keep every feature working.",
+      "expected_output": "Agent runs a design read (dials + palette + type roles), applies the anti-slop checklist, changes tokens/typography/overlays rather than structure, and verifies all features still work in a served tab.",
+      "files": [
+        "dashboard.html"
+      ],
+      "assertions": [
+        "Reply includes an explicit design read line before code changes",
+        "Reply names at least three generic defaults it is deliberately avoiding",
+        "All original interactive features still present after the change",
+        "Served verification step shown in the reply"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Make the quiz in my vocab app (app.html) smarter; people forget everything a week later.",
+      "expected_output": "Agent adds spaced repetition (2^n−1 schedule: +1,+3,+7,+15,+31 days) over the existing per-item correct/wrong store data, plus a drill-my-misses mode, without changing the data contract, and version-bumps or migrates the store safely.",
+      "files": [
+        "app.html"
+      ],
+      "assertions": [
+        "Store schema change is backward-compatible or explicitly migrated (no silent wipe)",
+        "Review scheduling uses exponential intervals, not fixed daily",
+        "A 'drill misses' entry point exists in the UI",
+        "verify_html.py --strict exits 0; quiz still functions end-to-end"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Turn my quarterly numbers in metrics.json into a single-file HTML report I can present on a projector and also print as a clean A4 handout.",
+      "expected_output": "A dashboard-genre build: KPI cards with tabular numerals and sparklines, one or two zero-dependency charts (SVG/conic-gradient), a sortable table, near-zero motion, a print stylesheet forcing light-on-white with @page rules, and Print-Preview verification.",
+      "files": [
+        "metrics.json"
+      ],
+      "assertions": [
+        "Contains a @media print block with light background and break-inside:avoid",
+        "Charts implemented without external chart libraries",
+        "Numbers use tabular-nums / formatting via Intl.NumberFormat",
+        "Every chart has role=img and an aria-label summary",
+        "verify_html.py --strict exits 0"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Build me a single-file HTML keynote deck for my product launch: 10 slides, dark theme, I'll present it fullscreen from my laptop.",
+      "expected_output": "A deck-genre build: fixed 1920×1080 scaled canvas, hash-based slide navigation, arrow/space keys, F fullscreen, P presenter view synced by postMessage with speaker notes per slide, one anchor colour with extreme type contrast, fonts embedded (no network request), slide roles, inert on hidden slides, a live region, touch-action pan-y pinch-zoom for swipe, a reduced-motion path, and a print stylesheet giving one 1920 by 1080 px page per slide.",
+      "files": [],
+      "assertions": [
+        "Slides authored at fixed logical size and scaled via transform (no reflow)",
+        "Keyboard navigation including Home/End and fullscreen toggle",
+        "Presenter notes present per slide with a presenter window synced by postMessage (not localStorage events or BroadcastChannel)",
+        "State survives refresh via location.hash",
+        "Deck verified on a non-native aspect ratio (scaled, no scrollbars)",
+        "No network requests: fonts and images embedded or system stacks",
+        "Each slide has role=region and aria-roledescription=slide; non-current slides are inert",
+        "Print CSS sizes slides in px (1920x1080) under @page, not in vw/vh",
+        "prefers-reduced-motion disables slide transitions"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "I want the Apple liquid-glass look and one of those animated shader-gradient backgrounds in my single-file HTML landing page. Can we just use liquid-glass-js, shadergradient, and react-three-fiber from npm?",
+      "expected_output": "The two-doors analysis from library-ecosystem.md: liquid-glass-js is vanilla and genuinely inlinable (door A on its own terms, with html2canvas when live page sampling is needed); shadergradient's effect is re-derived as a ~50-line noise ShaderMaterial per webgl.md §6 (or esbuild-bundled only if the exact look is contractual); react-three-fiber is rejected unless React state genuinely drives the scene (bundled through the esbuild door when it is genuinely needed); the vanilla liquid-glass recipe in design.md §9 is offered as the default glass.",
+      "files": [],
+      "assertions": [
+        "Reply distinguishes port-the-technique vs bundle-the-library per library instead of accepting or rejecting all three wholesale",
+        "react-three-fiber is flagged as React-renderer/bundle-only, never script-tag material",
+        "A vanilla re-derivation (design.md §9 glass recipe and/or webgl.md §6 noise shader) is proposed as the default",
+        "Bundle-route weights (React+fiber+three about 1 MB, html2canvas about 195 KB) are reported as information when a library is recommended, not used as a reason to refuse it",
+        "No size budget or 'one heavy library max' rule is applied: the choice is argued on result quality, and each library gets a licence note"
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "My landing page (landing.html) has a WebGL particle background. It stutters on this old laptop I'm building on. The site is for people browsing on recent phones and desktops. Make it ready to ship.",
+      "expected_output": "The agent does not fade or switch the effect off by device class or because the development laptop struggles. It explains in one line that quality is judged on the target devices (recent phones and desktops), states that this laptop's numbers are relative and that the target devices were not measured here, applies standard measures that do not lower visible quality (DPR clamp at 2, pause when hidden, context-loss handling), checks the mobile composition deliberately, and offers any real quality reduction only as a choice for the user, naming what was and was not verified.",
+      "files": [
+        "landing.html"
+      ],
+      "assertions": [
+        "No rule is added that hides, fades or disables the WebGL background below a width, for a device class, or because this laptop stutters",
+        "The reply asks about or names the target devices and says what could not be verified on them",
+        "Standard non-degrading measures are applied or proposed: devicePixelRatio capped at 2, loop paused when hidden, webglcontextlost handled",
+        "Numbers measured on this machine are labelled as relative (for example software GL), not target-device numbers",
+        "prefers-reduced-motion path present for the background"
+      ]
+    }
+  ]
+}

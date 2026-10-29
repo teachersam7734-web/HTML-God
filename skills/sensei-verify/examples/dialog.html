@@ -1,0 +1,43 @@
+<!doctype html>
+<!-- dialog.html: a small page with a modal dialog, used to show how scripted --steps prove what axe and the Tab walk
+     cannot: Escape closes the dialog and focus returns to the button that opened it. Run:
+       node ../scripts/sensei-gate.mjs dialog.html --checks load,net --steps dialog.steps.json
+     Original HTML-Sensei code.
+     verified: the gate with dialog.steps.json passes every step (installed Chrome, Windows). Opened with show() instead
+               of showModal(), steps 7 and 8 fail: a non-modal dialog does not close on Escape. Removing the
+               focus-return line below still passes: the native modal dialog returns focus to the opener itself.
+               (Both measured in Chrome; a custom div modal gets neither for free.)
+     not verified: screen reader announcement of the dialog; Firefox and Safari. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dialog with scripted checks</title>
+<style>
+  body { margin: 0; font: 1rem/1.6 system-ui, sans-serif; background: #fbfaf7; color: #1d1c1a; }
+  main { max-width: 40rem; margin: 0 auto; padding: 2rem 1rem; }
+  button { font: inherit; min-height: 2.75rem; padding: .5rem 1rem; border: 1px solid #6d6a63; border-radius: .5rem; background: #fff; color: inherit; }
+  :focus-visible { outline: 3px solid #0b5cad; outline-offset: 3px; }
+  dialog { border: 1px solid #6d6a63; border-radius: .75rem; padding: 1.5rem; max-width: min(28rem, 90vw); }
+  dialog::backdrop { background: rgb(0 0 0 / .45); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Settings</h1>
+  <p><button id="open" type="button">Open the settings dialog</button></p>
+  <dialog id="dlg" aria-labelledby="dlg-title">
+    <h2 id="dlg-title">Display settings</h2>
+    <p>Nothing to change here: this dialog exists to be tested.</p>
+    <button id="close" type="button">Close</button>
+  </dialog>
+</main>
+<script>
+  const dlg = document.getElementById('dlg'), open = document.getElementById('open');
+  open.addEventListener('click', () => dlg.showModal());
+  document.getElementById('close').addEventListener('click', () => dlg.close());
+  dlg.addEventListener('close', () => open.focus());   // belt and braces: native showModal() already does this in Chrome
+  window.__done = true;
+</script>
+</body>
+</html>

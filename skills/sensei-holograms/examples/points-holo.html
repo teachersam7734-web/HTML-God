@@ -1,0 +1,93 @@
+<!doctype html>
+<!--
+  points-holo.html: a particle hologram on plain WebGL. Points sampled from a mesh surface by triangle area with
+  three's MeshSurfaceSampler (seeded, so every load is identical), each carrying its surface normal. One draw call.
+  Each dot is lit by a wrapped two-light diffuse from the figure's normal so the cloud reads as a form; a fresnel-like
+  rim from the same normal; a materialise reveal from the bottom; a slow shimmer; the pointer pushes dots away
+  (analytic in the vertex shader, no state, off under reduced motion). A second pass of the same geometry as large,
+  faint sprites fakes bloom with no post stack (Save The Damsel's approach). Count follows the device tier.
+  In production, bake the sampled positions and normals as a base64 Float32Array (no sampling at load).
+  The torus knot is a stand-in for a glTF mesh (world-space, after updateMatrixWorld; see sensei-3d).
+  Build: node ../../sensei-3d/scripts/build-vendor.mjs vendor entry-points.js
+  verified: Windows 10, Chrome 155 + SwiftShader, three 0.186.1, 60,000 points (?n= overrides): gate3d.mjs passed;
+            two loads give the same frame at the same t (seeded sampler).
+  not verified: frame rate at 60,000 on any target; the pointer push with a real mouse or touch (set by script only).
+  Original code of this project; surface-sampled particle holograms are an idea from a reference-only repo (no
+  licence file), re-implemented on WebGL.
+-->
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Particle hologram</title>
+<style>html,body{margin:0;height:100%;background:#000}canvas{display:block;width:100%;height:100%;touch-action:pan-y}</style>
+<canvas id="c" role="img" aria-label="A knot made of glowing particles"></canvas>
+<script src="vendor/t-points.js"></script>
+<script>
+(() => {
+const { WebGLRenderer, Scene, PerspectiveCamera, ShaderMaterial, Points, Mesh, BufferGeometry, Float32BufferAttribute, TorusKnotGeometry, Color, Vector3, AdditiveBlending, MeshSurfaceSampler } = T;
+const q = new URLSearchParams(location.search), FIXED_T = q.has('t') ? +q.get('t') : null;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const coarse = matchMedia('(pointer: coarse)').matches, mem = navigator.deviceMemory || 4;
+const N = +(q.get('n') || (coarse && mem <= 2 ? 8000 : coarse || mem <= 4 ? 25000 : 60000));   // tier: a starting point
+
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const source = new Mesh(new TorusKnotGeometry(1.3, .42, 300, 40)); source.updateMatrixWorld(true);
+const sampler = new MeshSurfaceSampler(source).setRandomGenerator(mulberry32(7)).build();
+const pos = new Float32Array(N * 3), nor = new Float32Array(N * 3), rnd = new Float32Array(N), rand = mulberry32(11);
+const p = new Vector3(), n = new Vector3();
+for (let i = 0; i < N; i++) { sampler.sample(p, n); pos.set([p.x, p.y, p.z], i * 3); nor.set([n.x, n.y, n.z], i * 3); rnd[i] = rand(); }
+const geo = new BufferGeometry();
+geo.setAttribute('position', new Float32BufferAttribute(pos, 3)); geo.setAttribute('aNormal', new Float32BufferAttribute(nor, 3)); geo.setAttribute('aRnd', new Float32BufferAttribute(rnd, 1));
+
+const VS = `uniform float uTime, uPx, uSize, uReveal; uniform vec3 uPtr; uniform float uPush;
+  attribute vec3 aNormal; attribute float aRnd; varying float vLight; varying float vA;
+  void main(){
+    vec3 p = position;
+    vec4 wp = modelMatrix * vec4(p, 1.0); vec3 N = normalize(mat3(modelMatrix) * aNormal);
+    vec3 away = wp.xyz - uPtr; float d2 = dot(away.xy, away.xy);
+    wp.xyz += normalize(away + 1e-4) * uPush * exp(-d2 * 3.0) * (0.4 + 0.6 * aRnd);      // pointer push, analytic
+    wp.xyz += N * 0.02 * sin(uTime * 2.0 + aRnd * 40.0);                                  // shimmer along the normal
+    vec3 V = normalize(cameraPosition - wp.xyz);
+    float wrap1 = max(0.0, (dot(N, normalize(vec3(.6, .8, .4))) + .5) / 1.5);              // wrapped diffuse, two lights
+    float wrap2 = max(0.0, (dot(N, normalize(vec3(-.7, -.2, .5))) + .5) / 1.5);
+    float rim = pow(1.0 - abs(dot(V, N)), 2.0);
+    vLight = .35 + .9 * wrap1 + .35 * wrap2 + 1.2 * rim;
+    float ny = clamp(wp.y / 3.2 + .5, 0., 1.);
+    vA = 1.0 - smoothstep(uReveal - .06, uReveal, ny);                                       // materialise from the bottom
+    vec4 mv = viewMatrix * wp; gl_Position = projectionMatrix * mv;
+    gl_PointSize = uPx * uSize * (1.4 + aRnd) * (6.0 / -mv.z);
+  }`;
+const FS = `uniform vec3 uColor; uniform float uGain; varying float vLight; varying float vA;
+  void main(){ float r = length(gl_PointCoord - .5); if (r > .5 || vA <= 0.0) discard;
+    float a = pow(1.0 - 2.0 * r, 1.6) * vA * uGain; vec3 c = uColor * vLight * a; gl_FragColor = vec4(c, a); }`;
+const uni = (size, gain) => ({ uTime: { value: 0 }, uPx: { value: 1 }, uSize: { value: size }, uReveal: { value: 1 }, uPtr: { value: [9, 9, 0] }, uPush: { value: 0 }, uColor: { value: new Color('#3fd6ff') }, uGain: { value: gain } });
+const gain = Math.min(1, 0.6 * Math.sqrt(60000 / N));      // gain falls with count, or additive points blow out to white
+const dots = new Points(geo, new ShaderMaterial({ vertexShader: VS, fragmentShader: FS, uniforms: uni(2.2, gain), transparent: true, depthWrite: false, blending: AdditiveBlending }));
+const glow = new Points(geo, new ShaderMaterial({ vertexShader: VS, fragmentShader: FS, uniforms: uni(14, .03 * gain), transparent: true, depthWrite: false, blending: AdditiveBlending }));
+const scene = new Scene(); scene.add(glow, dots);
+const canvas = document.getElementById('c'), r = new WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+const cam = new PerspectiveCamera(40, 1, .1, 100); cam.position.set(0, 0, 7.5);
+const ptr = { x: 9, y: 9, push: 0 };                                       // eased in JS, frame-rate independent
+function frame(t) {
+  const still = reduce && FIXED_T === null;
+  for (const m of [dots, glow]) { const u = m.material.uniforms; u.uTime.value = still ? 0 : t; u.uReveal.value = still ? 1.1 : Math.min(1.1, t / 2.5); u.uPtr.value = [ptr.x, ptr.y, 0]; u.uPush.value = still ? 0 : ptr.push; m.rotation.y = t * .25; }
+  r.setClearColor(0x000000, 1); r.render(scene, cam);
+}
+window.__seek = frame;
+window.__pointer = (x, y, push = .6) => { ptr.x = x; ptr.y = y; ptr.push = push; };   // test hook
+canvas.addEventListener('pointermove', e => { if (reduce) return; const b = canvas.getBoundingClientRect();
+  const nx = (e.clientX - b.left) / b.width * 2 - 1, ny = 1 - (e.clientY - b.top) / b.height * 2, h = Math.tan(20 * Math.PI / 180) * 7.5;
+  ptr.x = nx * h * cam.aspect; ptr.y = ny * h; ptr.push = .6; });
+canvas.addEventListener('pointerleave', () => { ptr.push = 0; });
+function size() { const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return; const d = Math.min(devicePixelRatio || 1, 2); r.setPixelRatio(d); r.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); dots.material.uniforms.uPx.value = glow.material.uniforms.uPx.value = d; if (!raf) frame(FIXED_T ?? (reduce ? 3 : el)); }
+let raf = 0, t0 = performance.now(), el = 0, onScreen = true;
+const live = () => FIXED_T === null && !reduce && !document.hidden && onScreen;
+const loop = now => { raf = requestAnimationFrame(loop); el = (now - t0) / 1000; frame(el); };
+function sync() { if (!live() && raf) { cancelAnimationFrame(raf); raf = 0; } if (!raf) frame(FIXED_T ?? (reduce ? 3 : el)); if (live() && !raf) { t0 = performance.now() - el * 1000; raf = requestAnimationFrame(loop); } }
+document.addEventListener('visibilitychange', sync);
+new IntersectionObserver(es => { onScreen = es[0].isIntersecting; sync(); }).observe(canvas);
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); cancelAnimationFrame(raf); raf = 0; });
+canvas.addEventListener('webglcontextrestored', sync);
+new ResizeObserver(size).observe(canvas); size(); sync();
+window.__done = true;
+})();
+</script>
+</html>

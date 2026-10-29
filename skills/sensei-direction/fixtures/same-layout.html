@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Same layout twice (must fail)</title>
+<!-- fixture: three "directions" where A and B are one layout in two colours, B has no trade-off line, C leaks an
+     unprefixed class and uses lorem ipsum. check-directions.mjs must fail it on distinct, parts, prefix and copy.
+     verified: fails as intended (Chrome 155, Windows 10). -->
+<style>
+body{margin:0;font:16px system-ui,sans-serif;padding:24px}
+.va-h,.vb-h{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:40px}
+.va-h{background:#fff3e0}.vb-h{background:#e0f0ff}
+.vc-h{padding:40px;text-align:center;background:#eee}.shared{font-size:2rem}
+</style></head>
+<body><main><h1>Fixture</h1>
+<article class="direction" data-direction="A" data-prefix="va-"><h2>A</h2>
+  <p data-part="thesis">Thesis: warm split hero with copy left and picture right.</p>
+  <p data-part="tradeoff">Trade-off: friendly, but ordinary in its category.</p>
+  <ul data-part="grounded"><li>Split heroes in general.</li></ul>
+  <div class="preview"><section class="va-h"><div><h3 data-role="headline">Finish the books you started.</h3><a data-role="cta" href="#a">Start</a></div><div data-role="media" style="height:160px;background:#f90"></div></section></div></article>
+<article class="direction" data-direction="B" data-prefix="vb-"><h2>B</h2>
+  <p data-part="thesis">Thesis: cool split hero with copy left and picture right.</p>
+  <ul data-part="grounded"><li>Split heroes in general.</li></ul>
+  <div class="preview"><section class="vb-h"><div><h3 data-role="headline">Finish the books you started.</h3><a data-role="cta" href="#b">Start</a></div><div data-role="media" style="height:160px;background:#09f"></div></section></div></article>
+<article class="direction" data-direction="C" data-prefix="vc-"><h2>C</h2>
+  <p data-part="thesis">Thesis: centred poster with one big line.</p>
+  <p data-part="tradeoff">Trade-off: loud, memorable, light on proof.</p>
+  <ul data-part="grounded"><li>Campaign posters.</li></ul>
+  <div class="preview"><section class="vc-h"><h3 class="shared" data-role="headline">Lorem ipsum dolor sit amet.</h3><a data-role="cta" href="#c">Start</a></section></div></article>
+</main><script>window.__done=true</script></body></html>

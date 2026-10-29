@@ -1,0 +1,4 @@
+[
+  { "do": "eval", "expr": "location.search", "expect": "" },
+  { "do": "eval", "expr": "document.getElementById('toggle').getAttribute('aria-pressed')", "expect": "false" }
+]

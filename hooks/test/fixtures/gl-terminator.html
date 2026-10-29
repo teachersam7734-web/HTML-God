@@ -1,0 +1,13 @@
+<!doctype html>
+<!-- Fixture (QC finding 11): a "</script>" inside a string in an inline script, and a transpose multiply through a
+     vec4 variable. Must warn on both. -->
+<html lang="en"><head><meta charset="utf-8"><title>Terminator</title></head><body><canvas id="c"></canvas>
+<script>
+  const gl = document.getElementById('c').getContext('webgl2');
+  if (!gl) throw new Error('no WebGL');
+  const note = "</script><script>alert(1)</script>";
+  const vs = `#version 300 es
+  in vec3 position; uniform mat4 modelViewMatrix, projectionMatrix;
+  void main() { vec4 p = vec4(position, 1.0); gl_Position = projectionMatrix * (p * modelViewMatrix); }`;
+  addEventListener('webglcontextlost', e => e.preventDefault());
+</script></body></html>

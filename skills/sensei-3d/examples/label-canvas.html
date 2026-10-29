@@ -1,0 +1,52 @@
+<!doctype html>
+<!--
+  label-canvas.html: a text label in a three.js scene drawn with the browser's own canvas 2D text (so the BROWSER
+  shapes it: Persian and Arabic letters join, bidi and kerning are right), uploaded as a CanvasTexture on a plane.
+  The route for Persian or Arabic in 3D, where troika drew isolated letters (see text3d.html). The font is embedded
+  (FontFace from base64 bytes), so nothing is fetched. The same words stay in the HTML (aria-label) for assistive tech.
+  ?fa=1 sets the Persian line. Texture is drawn at 2x for sharpness; it softens at a distance (use it for labels and
+  titles, not body copy).
+  Build: node ../scripts/build-vendor.mjs vendor entry-label.js
+         node ../scripts/pack-data.mjs vendor/fontdata.js FONT ttf=YourFont.ttf   (a font with Persian coverage for ?fa=1)
+  verified: Windows 10, Chrome 155 + SwiftShader, three 0.186.1: Persian joined correctly with a system Arial TTF used
+            only as a local test font (never shipped); gate3d.mjs passed (Latin and ?fa=1).
+  not verified: Safari and Firefox canvas shaping; diacritic placement beyond the test string.
+  Original code of this project.
+-->
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Canvas-shaped 3D label</title>
+<style>html,body{margin:0;height:100%;background:#050b12}canvas{display:block;width:100%;height:100%}</style>
+<canvas id="c" role="img"></canvas>
+<script src="vendor/t-label.js"></script><script src="vendor/fontdata.js"></script>
+<script>
+(async () => {
+const q = new URLSearchParams(location.search), fa = q.has('fa');
+const FIXED_T = q.has('t') ? +q.get('t') : null, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TEXT = fa ? 'یک نیم کتاب، سلام دنیا' : 'Hologram lesson one';
+const canvas = document.getElementById('c'); canvas.setAttribute('aria-label', TEXT);
+const face = new FontFace('LabelFont', Uint8Array.from(atob(FONT.ttf), c => c.charCodeAt(0)).buffer);
+document.fonts.add(await face.load());                      // load before drawing, or the fallback font is drawn
+const W = 1024, H = 256, tc = document.createElement('canvas'); tc.width = W * 2; tc.height = H * 2;
+const g = tc.getContext('2d'); g.scale(2, 2);
+g.font = '600 88px LabelFont'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = fa ? 'rtl' : 'ltr';
+g.shadowColor = '#35d8ff'; g.shadowBlur = 18; g.fillStyle = '#bff3ff'; g.fillText(TEXT, W / 2, H / 2);
+const tex = new T.CanvasTexture(tc); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
+const r = new T.WebGLRenderer({ canvas, antialias: true });
+const s = new T.Scene(), cam = new T.PerspectiveCamera(40, 2, .1, 50); cam.position.z = 5;
+const plane = new T.Mesh(new T.PlaneGeometry(4, 1), new T.MeshBasicMaterial({ map: tex, transparent: true, side: T.DoubleSide, depthWrite: false }));
+s.add(plane);
+function size() { const w = canvas.clientWidth, h = canvas.clientHeight; r.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); r.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+function frame(t) { plane.rotation.y = Math.sin(t * .6) * .35; r.setClearColor(0x050b12); r.render(s, cam); }   // clear colour set per frame: survives a context restore
+window.__seek = frame;
+new ResizeObserver(() => { size(); if (!raf) frame(FIXED_T ?? 1); }).observe(canvas); size();
+let raf = 0, t0 = performance.now(), el = 0;
+const loop = now => { raf = requestAnimationFrame(loop); el = (now - t0) / 1000; frame(el); };
+const live = () => FIXED_T === null && !reduce;
+frame(FIXED_T ?? (reduce ? 1 : 0)); if (live()) raf = requestAnimationFrame(loop);
+document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelAnimationFrame(raf); raf = 0; } else if (live() && !raf) { t0 = performance.now() - el * 1000; raf = requestAnimationFrame(loop); } });
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); cancelAnimationFrame(raf); raf = 0; });
+canvas.addEventListener('webglcontextrestored', () => { if (live()) { t0 = performance.now() - el * 1000; raf = requestAnimationFrame(loop); } else frame(FIXED_T ?? 1); });
+window.__done = true;
+})().catch(e => { console.error('ERR ' + e.message); window.__done = true; });
+</script>
+</html>

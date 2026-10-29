@@ -1,0 +1,210 @@
+<!doctype html>
+<!--
+  deck.html: the HTML-Sensei single-file deck. A fixed 1920 by 1080 stage scaled to any screen, (slide, step) state in
+  the hash (#/2/1), keyboard, swipe, fragments, a FLIP morph between slides that share data-id, a presenter window
+  over postMessage, print to one PDF page per slide, and the accessibility structure (inert slides, a live region).
+  No library, no network: open it from disk.
+
+  verified: Windows 10, Node 24, playwright-core 1.62.1, installed Chrome 155, strict file:// (scripts/test-deck.mjs,
+            and sensei-verify's sensei-gate.mjs with examples/deck.steps.json): stage rect at 16:9 and square
+            viewports, keyboard walk, held-key repeats ignored, deep link, hashchange, touch swipe through CDP, morph
+            keyframes in unscaled pixels, no morph under reduced motion, presenter popup with notes driving the audience
+            window, PDF of 5 pages at 16:9 with every fragment visible, axe-core clean.
+  not verified: Firefox and Safari; a real projector, clicker or fullscreen (requestFullscreen needs a gesture);
+            smoothness of the morph on real hardware; screen-reader speech.
+  Origin: code-apps/deck/deck.html in the HTML-Sensei build project's research notes (not shipped) (HTML-Sensei's own code), extended with the held-key guard,
+  the centre self-check, the fullscreen refit, a focusable presenter button and the slide counter.
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Decks that survive anything</title>
+<style>
+:root{--W:1920;--H:1080;--bg:#0e1116;--fg:#f2f4f8;--accent:#ffb454;--dim:#aab3c0;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;color:var(--fg);font-family:system-ui,"Segoe UI",Roboto,sans-serif}
+/* The canvas is always 1920x1080 CSS px; script sets --s so it fits the viewport, letterboxed. */
+#frame{position:fixed;inset:0;overflow:hidden}
+/* Centre with left/top 50% and negative margins, NOT grid or flex centring: a 1920px item in a narrower grid grows the
+   track to 1920px, is laid out at x=0 and then scaled about its own centre, which leaves it 320px right and 180px down
+   at 1280x720 (found in testing). touch-action keeps vertical pan and pinch zoom but gives horizontal swipes to us. */
+#stage{width:calc(var(--W)*1px);height:calc(var(--H)*1px);position:absolute;left:50%;top:50%;
+  margin:calc(var(--H)*-.5px) 0 0 calc(var(--W)*-.5px);
+  transform:scale(var(--s,1));transform-origin:center;background:var(--bg);touch-action:pan-y pinch-zoom}
+.slide{position:absolute;inset:0;padding:120px 140px;display:flex;flex-direction:column;justify-content:center;gap:28px;
+  visibility:hidden;opacity:0}
+.slide[data-state="current"]{visibility:visible;opacity:1}
+.slide h1{font-size:128px;margin:0;line-height:1.05;letter-spacing:-.01em}
+.slide h2{font-size:84px;margin:0}
+.slide p,.slide li{font-size:44px;line-height:1.35;margin:0}
+.slide .kicker{font-size:30px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.slide ul{margin:0;padding-left:1.1em;display:grid;gap:18px}
+.box{width:200px;height:200px;background:var(--accent);border-radius:24px;position:relative}
+.frag{visibility:hidden;opacity:0}
+.frag.in{visibility:visible;opacity:1;transition:opacity .3s}
+aside.notes{display:none}
+.count{position:absolute;right:56px;bottom:40px;font-size:26px;color:var(--dim);font-variant-numeric:tabular-nums}
+#live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#bar{position:fixed;left:0;bottom:0;height:6px;background:var(--accent);width:0;transition:width .25s}
+/* a real control for the presenter view: popups need a gesture and some browsers block key-opened ones */
+#open-presenter{position:fixed;right:12px;top:12px;z-index:5;font:16px/1 system-ui,sans-serif;padding:12px 16px;min-height:44px;
+  border-radius:10px;border:1px solid #6b7686;background:#161b22;color:#f2f4f8;opacity:0;transition:opacity .2s;cursor:pointer}
+#open-presenter:focus-visible,#frame:hover~#open-presenter,#open-presenter:hover{opacity:1}
+#open-presenter:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+@media (hover:none){#open-presenter{opacity:.85}}
+@media (prefers-reduced-motion:reduce){.frag.in,#bar,#open-presenter{transition:none}}
+@media (forced-colors:active){#stage{border:1px solid CanvasText}.box{forced-color-adjust:none}}
+/* PRINT: one slide per page at the canvas size, every step visible, no scaling */
+@page{size:1920px 1080px;margin:0}
+@media print{
+  html,body{background:#fff;height:auto;overflow:visible}
+  #frame{position:static;overflow:visible}
+  #stage{transform:none!important;position:static;margin:0;width:auto;height:auto;background:none}
+  .slide{position:relative;inset:auto;width:1920px;height:1080px;visibility:visible!important;opacity:1!important;
+    break-after:page;background:var(--bg);color:var(--fg);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .frag{visibility:visible!important;opacity:1!important}
+  #bar,#live,#open-presenter{display:none}
+}
+</style>
+</head>
+<body>
+<div id="frame"><main id="stage" aria-label="Presentation">
+  <section class="slide" data-title="Title"><p class="kicker">A single-file deck</p><h1>Decks that survive anything</h1><p>One file, 16:9, keyboard, touch, notes</p>
+    <aside class="notes">Open by naming the problem: decks that break on the venue laptop.</aside></section>
+  <section class="slide" data-title="Steps"><h2>Step builds</h2>
+    <ul><li class="frag">First point</li><li class="frag">Second point</li><li class="frag" data-step="2">Appears with the second</li></ul>
+    <aside class="notes">Fragments reveal in DOM order unless data-step says otherwise.</aside></section>
+  <section class="slide" data-title="Morph A"><h2>Morph</h2><div class="box" data-id="b" style="margin-left:0"></div>
+    <aside class="notes">The box moves because the next slide has the same data-id.</aside></section>
+  <section class="slide" data-title="Morph B"><h2>Morph</h2><div class="box" data-id="b" style="margin-left:900px;width:420px;height:120px;background:#5ad1ff"></div>
+    <aside class="notes">Matched by data-id, animated with FLIP in unscaled coordinates.</aside></section>
+  <section class="slide" data-title="End"><h2 style="font-size:128px">Thank you</h2></section>
+  <div id="live" aria-live="polite"></div>
+</main></div>
+<div id="bar" aria-hidden="true"></div>
+<button type="button" id="open-presenter">Presenter view (S)</button>
+<script>
+(function(){
+"use strict";
+var W=1920,H=1080,stage=document.getElementById('stage'),slides=[].slice.call(stage.querySelectorAll('.slide'));
+var live=document.getElementById('live'),bar=document.getElementById('bar');
+var RM=matchMedia('(prefers-reduced-motion: reduce)');
+var cur=-1,step=0;
+slides.forEach(function(s,i){
+  s.setAttribute('role','region');s.setAttribute('aria-roledescription','slide');
+  s.setAttribute('aria-label',(i+1)+' of '+slides.length+': '+(s.dataset.title||''));
+  s.inert=true;
+  var f=[].slice.call(s.querySelectorAll('.frag'));
+  f.forEach(function(el,k){ if(!el.dataset.step) el.dataset.step=String(k+1); });
+  s._max=f.reduce(function(m,el){return Math.max(m,+el.dataset.step);},0);
+  var c=document.createElement('span');c.className='count';c.setAttribute('aria-hidden','true');c.textContent=(i+1)+' / '+slides.length;s.appendChild(c);
+});
+/* ---- fit: scale the fixed canvas into the viewport, then check the centre really is the stage ---- */
+function fit(){
+  var s=Math.min(innerWidth/W,innerHeight/H);
+  document.documentElement.style.setProperty('--s',s);
+  window.__scale=s;
+  requestAnimationFrame(function(){
+    var hit=document.elementFromPoint(innerWidth/2,innerHeight/2);
+    window.__centred=!!(hit&&stage.contains(hit)||hit===stage);
+    if(!window.__centred) console.warn('deck: the viewport centre is not on the stage; check the centring CSS');
+  });
+}
+addEventListener('resize',fit);document.addEventListener('fullscreenchange',fit);fit();
+/* ---- fragments ---- */
+function paintFrags(s,n){ [].forEach.call(s.querySelectorAll('.frag'),function(el){ el.classList.toggle('in',+el.dataset.step<=n); }); }
+/* ---- auto-animate: FLIP between data-id twins, in unscaled layout coordinates ---- */
+function geom(el,slide){ /* offset* ignores transforms (the stage scale), unlike getBoundingClientRect */
+  var x=0,y=0,e=el; while(e&&e!==slide){x+=e.offsetLeft;y+=e.offsetTop;e=e.offsetParent;}
+  var cs=getComputedStyle(el); return {x:x,y:y,w:el.offsetWidth,h:el.offsetHeight,bg:cs.backgroundColor};
+}
+function morph(from,to){
+  if(RM.matches||!to.animate) return;
+  [].forEach.call(to.querySelectorAll('[data-id]'),function(t){
+    var f=from.querySelector('[data-id="'+t.dataset.id+'"]'); if(!f) return;
+    var a=geom(f,from),b=geom(t,to);
+    var anim=t.animate([
+      {transform:'translate('+(a.x-b.x)+'px,'+(a.y-b.y)+'px) scale('+(a.w/b.w)+','+(a.h/b.h)+')',backgroundColor:a.bg,transformOrigin:'0 0'},
+      {transform:'none',backgroundColor:b.bg,transformOrigin:'0 0'}],
+      {duration:600,easing:'cubic-bezier(.2,.7,.2,1)'});
+    (window.__anims=window.__anims||[]).push(anim);
+  });
+}
+/* ---- navigation core: (slide, step) is the whole state ---- */
+function show(i,n,opts){
+  i=Math.max(0,Math.min(slides.length-1,i));
+  var prevS=cur>=0?slides[cur]:null,s=slides[i];
+  n=Math.max(0,Math.min(s._max,n==null?0:n));
+  if(i!==cur){
+    if(prevS){prevS.dataset.state='';prevS.inert=true;}
+    s.dataset.state='current';s.inert=false;
+    var was=cur;cur=i;
+    if(prevS&&!(opts&&opts.noMorph)&&Math.abs(i-was)===1) morph(prevS,s);
+    live.textContent=(i+1)+' of '+slides.length+': '+(s.dataset.title||'');
+  }
+  step=n;paintFrags(s,n);
+  bar.style.width=((i+(s._max?n/s._max:1))/(slides.length)*100)+'%';
+  var h='#/'+(i+1)+(n?'/'+n:''); if(location.hash!==h) history.replaceState(null,'',h);
+  post({t:'state',i:i,n:n});
+}
+function next(){ var s=slides[cur]; if(step<s._max) show(cur,step+1); else if(cur<slides.length-1) show(cur+1,0); }
+function prev(){ if(step>0) show(cur,step-1); else if(cur>0) show(cur-1,slides[cur-1]._max); }
+function fromHash(){ var m=/^#\/(\d+)(?:\/(\d+))?/.exec(location.hash); return m?[+m[1]-1,+(m[2]||0)]:[0,0]; }
+addEventListener('hashchange',function(){var h=fromHash();show(h[0],h[1],{noMorph:true});});
+/* ---- keyboard: modifiers and form fields keep their keys; a held key or a clicker's repeat does not skip slides ---- */
+addEventListener('keydown',function(e){
+  if(e.altKey||e.ctrlKey||e.metaKey) return;
+  if(/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName)&&(e.key===' '||e.key==='Enter')) return;
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||e.target.isContentEditable) return;
+  var k=e.key,nav=/^(ArrowRight|ArrowLeft|PageDown|PageUp| |Enter|Backspace)$/.test(k);
+  if(nav&&e.repeat){e.preventDefault();return;}
+  if(k==='ArrowRight'||k==='PageDown'||k===' '||k==='Enter'){e.preventDefault();next();}
+  else if(k==='ArrowLeft'||k==='PageUp'||k==='Backspace'){e.preventDefault();prev();}
+  else if(k==='Home')show(0,0);
+  else if(k==='End')show(slides.length-1,slides[slides.length-1]._max);
+  else if(k==='f'){ if(document.fullscreenElement) document.exitFullscreen(); else if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(function(){}); }
+  else if(k==='s')openPresenter();
+});
+/* ---- touch, pen and mouse swipe through Pointer Events ---- */
+var p0=null;
+stage.addEventListener('pointerdown',function(e){ if(e.target.closest('a,button,input,textarea,select,[contenteditable]'))return; p0={x:e.clientX,y:e.clientY,t:performance.now(),id:e.pointerId}; });
+stage.addEventListener('pointerup',function(e){
+  if(!p0||e.pointerId!==p0.id)return; var dx=e.clientX-p0.x,dy=e.clientY-p0.y,dt=performance.now()-p0.t; p0=null;
+  if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5&&dt<800){ if(dx<0)next(); else prev(); }
+});
+stage.addEventListener('pointercancel',function(){p0=null;});
+/* ---- presenter view: opener and popup talk by postMessage (works on file://, unlike BroadcastChannel in Firefox) ---- */
+var pop=null;
+function post(m){ m.src='deck'; try{ if(pop&&!pop.closed) pop.postMessage(m,'*'); if(window.__isPresenter&&window.opener) window.opener.postMessage(m,'*'); }catch(e){} }
+function openPresenter(){
+  if(window.__isPresenter) return;
+  pop=window.open(location.href.split('#')[0].split('?')[0]+'?presenter'+location.hash,'deck-presenter','width=1100,height=700');
+}
+document.getElementById('open-presenter').addEventListener('click',openPresenter);
+addEventListener('message',function(e){
+  var m=e.data; if(!m||m.src!=='deck') return;
+  if(window.__isPresenter){ if(e.source!==window.opener) return; if(m.t==='state'){ show(m.i,m.n,{noMorph:true}); renderPresenter(); } }
+  else if(pop&&e.source===pop){ if(m.t==='go'){ if(m.d>0)next(); else prev(); } }
+});
+if(/[?&]presenter\b/.test(location.search)){
+  window.__isPresenter=true;
+  document.getElementById('open-presenter').hidden=true;
+  var ui=document.createElement('aside');
+  ui.setAttribute('aria-label','Presenter');
+  ui.style.cssText='position:fixed;right:0;top:0;width:34%;height:100%;background:#161b22;color:#e6edf3;padding:16px;z-index:9;font:18px system-ui;overflow:auto';
+  ui.innerHTML='<h2 style="margin:0 0 8px;font-size:20px">Presenter</h2><div id="pn" style="white-space:pre-wrap"></div><p><button type="button" id="pp">Previous</button> <button type="button" id="pnx">Next</button> <span id="pt" aria-label="Elapsed time"></span></p>';
+  document.body.appendChild(ui);
+  document.getElementById('frame').style.right='34%';
+  var t0=Date.now(); setInterval(function(){var s=Math.floor((Date.now()-t0)/1000);document.getElementById('pt').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');},500);
+  document.getElementById('pnx').onclick=function(){window.opener.postMessage({src:'deck',t:'go',d:1},'*');};
+  document.getElementById('pp').onclick=function(){window.opener.postMessage({src:'deck',t:'go',d:-1},'*');};
+}
+function renderPresenter(){ var n=slides[cur].querySelector('aside.notes'); document.getElementById('pn').textContent=(cur+1)+'/'+slides.length+'\n\n'+(n?n.textContent:'(no notes)'); }
+var h0=fromHash();show(h0[0],h0[1],{noMorph:true});
+if(window.__isPresenter) renderPresenter();
+window.__deck={show:show,next:next,prev:prev,get state(){return{i:cur,n:step};},count:slides.length};
+})();
+</script>
+</body>
+</html>

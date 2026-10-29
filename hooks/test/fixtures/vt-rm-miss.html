@@ -1,0 +1,12 @@
+<!doctype html>
+<!-- Fixture (QC finding 4): 2 s View Transitions with an unrelated reduce rule. Must warn. -->
+<html lang="en"><head><meta charset="utf-8"><title>VT reduce miss</title><style>
+  ::view-transition-group(root) { animation-duration: 2s; }
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+</style></head><body><button id="b">Go</button><div class="card">x</div>
+<script>
+  document.getElementById('b').addEventListener('click', () => {
+    if (!document.startViewTransition) { document.body.classList.toggle('on'); return; }
+    document.startViewTransition(() => document.body.classList.toggle('on'));
+  });
+</script></body></html>

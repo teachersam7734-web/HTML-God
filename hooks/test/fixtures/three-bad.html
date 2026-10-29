@@ -1,0 +1,16 @@
+<!doctype html><script src="https://cdn.jsdelivr.net/npm/three@0.150/build/three.min.js"></script>
+<!-- Fixture: the 3D lane's bad.html (lint3d.mjs), every 3D rule should fire. Not a real page. -->
+<video src=""></video>
+<script>
+const r=new THREE.WebGLRenderer(); r.setPixelRatio(devicePixelRatio); const c=new THREE.Clock();
+function loop(){requestAnimationFrame(loop)} loop();
+const fs=`
+ void main(){
+  vec3 w=vec3(vec4(position,1.)*modelMatrix);
+  float a=smoothstep(0.8,0.0,x);
+  p.x += (random(p.xz + t) - 0.5) * g;
+  p.z += (random(p.xz + t) - 0.5) * g;
+ }`;
+draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+const u=import.meta.url;
+</script>

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "Pill-JS-CSS",
+  "title": "Pill",
+  "description": "Fixture for registry-fetch.mjs: a tiny status pill. HTML-Sensei's own code, written for the test.",
+  "type": "registry:component",
+  "files": [
+    { "type": "registry:file", "path": "Pill.css", "content": ".pill { display: inline-flex; padding-inline: .6em; border: 1px solid currentColor; border-radius: 999px; }\n" },
+    { "type": "registry:component", "path": "Pill.jsx", "content": "'use client';\n\nimport './Pill.css';\n\nexport default function Pill({ children }) {\n  return <span className=\"pill\">{children}</span>;\n}\n" }
+  ],
+  "registryDependencies": [],
+  "dependencies": ["clsx@2.1.1"]
+}

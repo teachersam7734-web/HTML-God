@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shadow-only control (must fail)</title>
+<!-- fixture: a button whose shape is carried only by box-shadow with border:0. style-shots.mjs must report it.
+     verified: fails style-shots.mjs as intended (Chrome 155, Windows 10). -->
+<style>
+body{margin:0;padding:24px;background:#e0e5ec;font:16px system-ui,sans-serif}
+.demo{padding:24px;border-radius:18px;background:#e0e5ec}
+.btn{border:0;min-block-size:44px;padding-inline:20px;border-radius:14px;background:#e0e5ec;color:#2d3748;box-shadow:6px 6px 12px #a3b1c6,-6px -6px 12px #fff}
+</style></head>
+<body><main><h1>Fixture</h1><section class="demo" data-style="shadow only"><button class="btn" type="button">Start</button></section></main>
+<script>window.__done=true</script></body></html>

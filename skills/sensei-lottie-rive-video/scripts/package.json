@@ -1,0 +1,15 @@
+{
+  "name": "sensei-lottie-rive-video-work",
+  "private": true,
+  "type": "module",
+  "description": "Work-folder dependencies for the sensei-lottie-rive-video tests. Copy this file to a work folder, npm install, run the tests from there. Exact versions are the ones verified.",
+  "dependencies": {
+    "@lottiefiles/dotlottie-web": "0.81.0",
+    "@rive-app/canvas": "2.45.0",
+    "@rive-app/canvas-lite": "2.45.0",
+    "@rive-app/canvas-single": "2.45.0",
+    "@rive-app/webgl2": "2.45.0",
+    "esbuild": "0.28.2",
+    "lottie-web": "5.13.0"
+  }
+}

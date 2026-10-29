@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lenis and ScrollTrigger</title>
+<!--
+  scroll-libs.template.html: Lenis smooth scroll driven by the GSAP ticker, ScrollTrigger pinning a horizontal section
+  with a smoothed scrub, gsap.matchMedia for the reduced-motion branch, a nested scroller Lenis leaves alone, anchors
+  through Lenis. The libraries are NOT in this file: build it with
+    npm i -D lenis@1.3.27 gsap@3.15.0
+    node ../scripts/inline-libs.mjs scroll-libs.template.html scroll-libs.html
+  which inlines the pinned files from node_modules, keeps the GSAP headers, adds the missing Lenis notice, and prints
+  the ledger rows.
+  verified: Windows 10, Node 24, Chrome headless via playwright-core 1.62, swiftshader, built with lenis 1.3.27 and
+            gsap 3.15.0, strict file://: ../scripts/test-libs.mjs (every assertion: pin holds, panels travel the full
+            width, wheel input glides under normal motion and jumps under reduced motion, programmatic scrollTo is
+            instant under reduced motion, no ScrollTrigger and wrapped panels under reduced motion, the nested box keeps
+            native scrolling, anchors land below the header); sensei-verify's sensei-gate.mjs on the built file.
+  not verified: how the smoothing feels (judge it in a real window on the target device); touch (Lenis leaves touch
+            native by default); Firefox and Safari; Safari's 60 fps cap reported by the Lenis docs.
+  HTML-Sensei's own code. Lenis: MIT, darkroom.engineering. GSAP: standard no-charge licence, keep its headers.
+-->
+<style data-inline="lenis/dist/lenis.css"></style>
+<style>
+:root{--bg:#101114;--fg:#f1eee6;--ac:#ffb454;--panel:#1c1e26}
+*{box-sizing:border-box}
+html{background:var(--bg);color:var(--fg);font:18px/1.5 system-ui,sans-serif;scroll-padding-top:4rem}
+body{margin:0}
+header{position:sticky;top:0;z-index:5;background:#000d;padding:.8rem 6vw;display:flex;gap:1.25rem;flex-wrap:wrap}
+a{color:var(--ac)}
+:focus-visible{outline:3px solid #6ee7b7;outline-offset:3px}
+section{padding:14vh 6vw}
+/* Static layout first: panels wrap, nothing hidden. The pinned row exists only when the motion branch adds .js-pin. */
+.track{display:flex;flex-wrap:wrap;gap:2rem}
+.panel{flex:1 1 18rem;min-height:40vh;border-radius:20px;background:var(--panel);display:grid;place-items:center;font-size:2.5rem}
+.js-pin .hs{height:100vh;overflow:clip;display:flex;align-items:center;padding:0}
+.js-pin .track{flex-wrap:nowrap;width:max-content;padding-inline:6vw}
+.js-pin .panel{flex:none;width:60vw;height:55vh}
+.box{height:14rem;overflow:auto;border:1px solid #555;border-radius:12px;padding:1rem}
+.box p{margin:0 0 1rem}
+</style>
+</head>
+<body>
+<header><nav aria-label="Sections"><a href="#intro">Intro</a> <a href="#hs">Horizontal</a> <a href="#nested">Nested box</a> <a href="#end">End</a></nav></header>
+<main>
+<section id="intro"><h1>Lenis under ScrollTrigger</h1><p>Smooth wheel scrolling on native scroll, a pinned horizontal section, and native scrolling inside the box below.</p></section>
+<section class="hs" id="hs" aria-label="Horizontal panels"><div class="track" id="track"><div class="panel">1</div><div class="panel">2</div><div class="panel">3</div><div class="panel">4</div></div></section>
+<section id="nested" aria-label="Nested box"><div class="box" id="box" tabindex="0" role="region" aria-label="Notes" data-lenis-prevent>
+  <p>This box scrolls natively: data-lenis-prevent stops Lenis from taking its wheel events.</p><p>Line two.</p><p>Line three.</p><p>Line four.</p><p>Line five.</p><p>Line six.</p><p>Line seven.</p><p>Line eight.</p><p>Line nine.</p><p>Line ten.</p>
+</div></section>
+<section id="end" style="min-height:120vh"><h2>End</h2><p>Anchors above go through Lenis, so they glide, or jump under reduced motion.</p></section>
+</main>
+<script data-inline="lenis/dist/lenis.min.js"></script>
+<script data-inline="gsap/dist/gsap.min.js"></script>
+<script data-inline="gsap/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  if (!window.Lenis || !window.gsap || !window.ScrollTrigger) { window.__ready = 'no-libs'; return; }
+  gsap.registerPlugin(ScrollTrigger);
+  // One clock: the GSAP ticker drives Lenis (time in ms), Lenis tells ScrollTrigger when it scrolls.
+  // respectReducedMotion stays at its default (true): wheel smoothing off and programmatic scrolls instant under reduce.
+  var lenis = new Lenis({ autoRaf: false, anchors: true });
+  lenis.on('scroll', ScrollTrigger.update);
+  gsap.ticker.add(function(t){ lenis.raf(t * 1000); });
+  gsap.ticker.lagSmoothing(0);
+  window.__lenis = lenis;
+
+  var mm = gsap.matchMedia();
+  mm.add({ ok: '(prefers-reduced-motion: no-preference)', reduce: '(prefers-reduced-motion: reduce)' }, function(c){
+    if (!c.conditions.ok) return;               // reduce: static wrapped panels, no pin, no scrub
+    document.documentElement.classList.add('js-pin');
+    var track = document.getElementById('track');
+    var dist = function(){ return track.scrollWidth - innerWidth; };
+    // pinType 'transform': the default fixed pin toggles position as it releases and the gate measured CLS 2.46;
+    // transform pinning measured 0 (sensei-scroll TRAPS).
+    gsap.to(track, { x: function(){ return -dist(); }, ease: 'none',
+      scrollTrigger: { trigger: '#hs', start: 'top top', pin: true, pinType: 'transform', scrub: 1, invalidateOnRefresh: true,
+        end: function(){ return '+=' + dist(); } } });
+    return function(){ document.documentElement.classList.remove('js-pin'); };   // runs when the query stops matching
+  });
+  addEventListener('load', function(){ ScrollTrigger.refresh(); window.__ready = true; });
+})();
+</script>
+</body>
+</html>

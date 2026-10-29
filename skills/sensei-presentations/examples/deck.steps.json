@@ -1,0 +1,13 @@
+[
+  { "do": "eval", "expr": "window.__deck.state.i", "expect": "0" },
+  { "do": "press", "key": "ArrowRight" },
+  { "do": "press", "key": "ArrowRight" },
+  { "do": "wait", "ms": 400 },
+  { "do": "eval", "expr": "location.hash", "expect": "#/2/1" },
+  { "do": "shot", "name": "step-build" },
+  { "do": "press", "key": "End" },
+  { "do": "eval", "expr": "document.querySelectorAll('.slide:not([inert])').length", "expect": "1" },
+  { "do": "eval", "expr": "document.getElementById('live').textContent", "expect": "5 of 5: End" },
+  { "do": "press", "key": "Home" },
+  { "do": "eval", "expr": "window.__deck.state.i", "expect": "0" }
+]

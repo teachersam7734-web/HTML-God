@@ -1,0 +1,2 @@
+{{title}} ({{name}}), fixture item from {{url}}, fetched {{date}}, file {{file}}.
+Copyright (c) 2026 HTML-Sensei (test fixture). MIT License.
